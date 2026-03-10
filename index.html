@@ -33,17 +33,11 @@
     <div class="auth-choice-options">
       <button class="auth-option-btn" onclick="showPage('login')">
         <i class="fa fa-right-to-bracket"></i>
-        <div>
-          <span>Sudah punya akun? Masuk</span>
-          <span class="opt-label">Login dengan username & password</span>
-        </div>
+        <div><span>Sudah punya akun? Masuk</span><span class="opt-label">Login dengan username &amp; password</span></div>
       </button>
       <button class="auth-option-btn" onclick="showPage('register')">
         <i class="fa fa-user-plus"></i>
-        <div>
-          <span>Belum punya akun? Daftar</span>
-          <span class="opt-label">Buat akun baru gratis</span>
-        </div>
+        <div><span>Belum punya akun? Daftar</span><span class="opt-label">Buat akun baru gratis</span></div>
       </button>
     </div>
   </div>
@@ -92,7 +86,7 @@
       <input class="form-input" type="password" id="reg-confirm" placeholder="Ulangi password" autocomplete="new-password">
     </div>
     <p class="form-error" id="reg-error">Error</p>
-    <button class="btn-primary" onclick="doRegister()">Daftar & Masuk</button>
+    <button class="btn-primary" onclick="doRegister()">Daftar &amp; Masuk</button>
     <div class="auth-switch">Sudah punya akun? <a onclick="showPage('login')">Masuk</a></div>
   </div>
 </div>
@@ -103,7 +97,6 @@
   <!-- DESKTOP SIDEBAR -->
   <aside class="app-sidebar">
     <div class="sidebar-logo">Altavy</div>
-
     <button class="sidebar-nav-item active" id="sidebar-nav-home" onclick="switchTab('home',this)">
       <i class="fa fa-house"></i> Beranda
     </button>
@@ -111,7 +104,7 @@
       <i class="fa fa-film"></i> Reels
     </button>
     <button class="sidebar-nav-item" id="sidebar-nav-search" onclick="openSearchPage()">
-      <i class="fa fa-search"></i> Cari Pengguna
+      <i class="fa fa-search"></i> Cari
     </button>
     <button class="sidebar-nav-item" id="sidebar-nav-chat" onclick="switchTab('chat',this)">
       <i class="fa fa-comment-dots"></i> Chat
@@ -124,14 +117,12 @@
     <button class="sidebar-nav-item" id="sidebar-nav-profile" onclick="switchTab('profile',this)">
       <i class="fa fa-user"></i> Profil
     </button>
-
     <button class="sidebar-create-btn" style="margin-top:1rem;" onclick="openCreatePost()">
       <i class="fa fa-plus"></i> Buat Post
     </button>
     <button class="sidebar-create-btn" style="margin-top:0.5rem;background:var(--bg3);color:var(--text);border:1.5px solid var(--border);" onclick="openCreateReel()">
       <i class="fa fa-video"></i> Upload Reel
     </button>
-
     <div style="flex:1;"></div>
     <button class="sidebar-settings-btn" onclick="openSettings()">
       <i class="fa fa-cog"></i> Pengaturan
@@ -170,7 +161,7 @@
       <div id="tab-chat" class="tab-panel">
         <div class="chat-search">
           <i class="fa fa-search"></i>
-          <input type="text" placeholder="Cari percakapan..." id="chat-search-input" oninput="filterChats()">
+          <input type="text" placeholder="Cari percakapan atau pengguna..." id="chat-search-input" oninput="filterChats()">
         </div>
         <div id="chat-list-wrap" style="padding:0.5rem;"></div>
       </div>
@@ -255,7 +246,7 @@
   </div>
   <div class="pd-content" id="pd-content"></div>
   <div class="comment-input-row">
-    <input class="comment-input" type="text" id="comment-input" placeholder="Tambah komentar..." onkeydown="if(event.key==='Enter')submitComment()">
+    <input class="comment-input" type="text" id="comment-input" placeholder="Tambah komentar... @mention #tag" onkeydown="if(event.key==='Enter')submitComment()">
     <button class="send-btn" onclick="submitComment()"><i class="fa fa-paper-plane"></i></button>
   </div>
 </div>
@@ -276,17 +267,23 @@
     <span style="font-family:'Syne',sans-serif;font-weight:700;flex:1;">Pengaturan</span>
   </div>
   <div class="settings-body">
-    <div class="settings-page" style="padding:1rem;">
+    <div style="padding:1rem;">
       <div class="settings-section">
         <div class="settings-section-title">Akun</div>
         <div class="settings-item" onclick="openEditProfile()">
-          <i class="fa fa-image"></i><span class="settings-label">Ganti Foto Profil & Bio</span><i class="fa fa-chevron-right settings-arrow"></i>
+          <i class="fa fa-image"></i><span class="settings-label">Ganti Foto Profil &amp; Bio</span><i class="fa fa-chevron-right settings-arrow"></i>
         </div>
         <div class="settings-item" onclick="openEditUsername()">
           <i class="fa fa-user"></i><span class="settings-label">Ubah Username</span><i class="fa fa-chevron-right settings-arrow"></i>
         </div>
         <div class="settings-item" onclick="openEditPassword()">
           <i class="fa fa-lock"></i><span class="settings-label">Ubah Password</span><i class="fa fa-chevron-right settings-arrow"></i>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">Privasi &amp; Keamanan</div>
+        <div class="settings-item" onclick="openBlockedList()">
+          <i class="fa fa-ban"></i><span class="settings-label">Kelola Blokiran</span><i class="fa fa-chevron-right settings-arrow"></i>
         </div>
       </div>
       <div class="settings-section">
@@ -302,7 +299,7 @@
       <div class="settings-section">
         <div class="settings-section-title">Lainnya</div>
         <div class="settings-item" onclick="openFeedback()">
-          <i class="fa fa-comment-alt"></i><span class="settings-label">Kirim Kritik & Saran</span><i class="fa fa-chevron-right settings-arrow"></i>
+          <i class="fa fa-comment-alt"></i><span class="settings-label">Kirim Kritik &amp; Saran</span><i class="fa fa-chevron-right settings-arrow"></i>
         </div>
         <div class="settings-item" onclick="doLogout()" style="color:#ef4444;">
           <i class="fa fa-sign-out" style="color:#ef4444;"></i><span class="settings-label" style="color:#ef4444;">Logout</span>
@@ -326,6 +323,50 @@
   <div class="story-media" id="sv-media"></div>
 </div>
 
+<!-- HASHTAG PAGE -->
+<div id="hashtag-page">
+  <div class="pd-header">
+    <button class="icon-btn" onclick="closeHashtagPage()"><i class="fa fa-arrow-left"></i></button>
+    <span id="hashtag-title" style="font-family:'Syne',sans-serif;font-weight:700;color:var(--accent);"></span>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:0.5rem;" id="hashtag-list"></div>
+</div>
+
+<!-- FOLLOWERS/FOLLOWING PAGE -->
+<div id="followers-page">
+  <div class="pd-header">
+    <button class="icon-btn" onclick="closeFollowersPage()"><i class="fa fa-arrow-left"></i></button>
+    <span id="followers-page-title" style="font-family:'Syne',sans-serif;font-weight:700;"></span>
+  </div>
+  <div style="flex:1;overflow-y:auto;" id="followers-list-wrap"></div>
+</div>
+
+<!-- SEARCH PAGE -->
+<div id="search-page">
+  <div class="search-header">
+    <button class="icon-btn" onclick="closeSearchPage()"><i class="fa fa-arrow-left"></i></button>
+    <div class="search-input-wrap">
+      <i class="fa fa-search"></i>
+      <input type="text" id="search-input" placeholder="Cari pengguna, #tag, atau konten..." oninput="handleSearch(this.value)" autofocus>
+    </div>
+  </div>
+  <div class="search-body" id="search-body">
+    <div class="search-section-label">Trending Tag</div>
+    <div class="search-trending" id="search-trending">
+      <span class="search-trending-tag" onclick="searchByTag('photography')">#photography</span>
+      <span class="search-trending-tag" onclick="searchByTag('travel')">#travel</span>
+      <span class="search-trending-tag" onclick="searchByTag('food')">#food</span>
+      <span class="search-trending-tag" onclick="searchByTag('art')">#art</span>
+      <span class="search-trending-tag" onclick="searchByTag('music')">#music</span>
+      <span class="search-trending-tag" onclick="searchByTag('nature')">#nature</span>
+    </div>
+    <div class="search-section-label" style="margin-top:0.5rem;">Pengguna</div>
+    <div id="search-results-users"></div>
+    <div class="search-section-label" style="margin-top:0.5rem;display:none;" id="search-posts-label">Postingan</div>
+    <div id="search-results-posts" class="search-post-grid"></div>
+  </div>
+</div>
+
 <!-- MODALS -->
 <!-- Create Post -->
 <div class="modal-overlay" id="modal-create-post">
@@ -341,7 +382,8 @@
       <div style="font-size:0.8rem;color:var(--text3);">Klik untuk upload dari perangkat</div>
     </div>
     <div id="post-preview" class="upload-preview" style="display:none;"></div>
-    <textarea class="caption-input" id="post-caption" placeholder="Tulis caption... #tag @mention" style="margin:1rem 0;"></textarea>
+    <textarea class="caption-input" id="post-caption" placeholder="Tulis caption... #hashtag @mention" style="margin:1rem 0;"></textarea>
+    <div style="font-size:0.78rem;color:var(--text3);margin-bottom:0.5rem;"><i class="fa fa-info-circle"></i> Gunakan <span style="color:var(--accent);">#hashtag</span> dan <span style="color:var(--accent);">@mention</span> di caption</div>
     <button class="btn-primary" onclick="submitPost()">Posting</button>
   </div>
 </div>
@@ -360,7 +402,7 @@
       <div style="font-size:0.8rem;color:var(--text3);">Format: MP4, MOV, WebM</div>
     </div>
     <div id="reel-preview" class="upload-preview" style="display:none;"></div>
-    <textarea class="caption-input" id="reel-caption" placeholder="Caption reels..." style="margin:1rem 0;"></textarea>
+    <textarea class="caption-input" id="reel-caption" placeholder="Caption reels... #hashtag @mention" style="margin:1rem 0;"></textarea>
     <button class="btn-primary" onclick="submitReel()">Upload Reels</button>
   </div>
 </div>
@@ -446,7 +488,7 @@
 <div class="modal-overlay" id="modal-feedback">
   <div class="modal-sheet">
     <div class="modal-header">
-      <span class="modal-title">Kirim Kritik & Saran</span>
+      <span class="modal-title">Kirim Kritik &amp; Saran</span>
       <button class="modal-close" onclick="closeModal('modal-feedback')"><i class="fa fa-times"></i></button>
     </div>
     <p style="color:var(--text2);font-size:0.9rem;margin-bottom:1rem;line-height:1.6;">Bantu kami tingkatkan Altavy dengan kritik dan saran kamu.</p>
@@ -455,35 +497,48 @@
   </div>
 </div>
 
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
-
-<!-- SEARCH PAGE -->
-<div id="search-page">
-  <div class="search-header">
-    <button class="icon-btn" onclick="closeSearchPage()"><i class="fa fa-arrow-left"></i></button>
-    <div class="search-input-wrap">
-      <i class="fa fa-search"></i>
-      <input type="text" id="search-input" placeholder="Cari pengguna, tag, atau konten..." oninput="handleSearch(this.value)" autofocus>
+<!-- REPORT MODAL -->
+<div class="modal-overlay" id="modal-report">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title" id="report-target-label">Buat Laporan</span>
+      <button class="modal-close" onclick="closeModal('modal-report')"><i class="fa fa-times"></i></button>
     </div>
-  </div>
-  <div class="search-body" id="search-body">
-    <div class="search-section-label">Trending Tag</div>
-    <div class="search-trending" id="search-trending">
-      <span class="search-trending-tag" onclick="searchByTag('photography')">#photography</span>
-      <span class="search-trending-tag" onclick="searchByTag('travel')">#travel</span>
-      <span class="search-trending-tag" onclick="searchByTag('food')">#food</span>
-      <span class="search-trending-tag" onclick="searchByTag('art')">#art</span>
-      <span class="search-trending-tag" onclick="searchByTag('music')">#music</span>
-      <span class="search-trending-tag" onclick="searchByTag('nature')">#nature</span>
+    <input type="hidden" id="report-target-id">
+    <input type="hidden" id="report-target-type">
+    <div class="form-field">
+      <label>Alasan Laporan</label>
+      <select class="form-input" id="report-reason" style="cursor:pointer;">
+        <option value="">-- Pilih Alasan --</option>
+        <option value="spam">Spam atau iklan tidak relevan</option>
+        <option value="inappropriate">Konten tidak pantas / vulgar</option>
+        <option value="harassment">Pelecehan atau perundungan</option>
+        <option value="hate">Ujaran kebencian</option>
+        <option value="false_info">Informasi palsu / hoaks</option>
+        <option value="other">Alasan lainnya</option>
+      </select>
     </div>
-    <div class="search-section-label" style="margin-top:0.5rem;">Pengguna</div>
-    <div id="search-results-users"></div>
-    <div class="search-section-label" style="margin-top:0.5rem;" id="search-posts-label" style="display:none;">Postingan</div>
-    <div id="search-results-posts" class="search-post-grid"></div>
+    <div class="form-field">
+      <label>Catatan Tambahan (opsional)</label>
+      <textarea class="caption-input" id="report-notes" placeholder="Jelaskan lebih lanjut..." style="min-height:80px;"></textarea>
+    </div>
+    <button class="btn-primary" onclick="submitReport()"><i class="fa fa-flag"></i> Kirim Laporan</button>
   </div>
 </div>
+
+<!-- BLOCKED LIST MODAL -->
+<div class="modal-overlay" id="modal-blocked-list">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <span class="modal-title"><i class="fa fa-ban"></i> Pengguna Diblokir</span>
+      <button class="modal-close" onclick="closeModal('modal-blocked-list')"><i class="fa fa-times"></i></button>
+    </div>
+    <div id="blocked-list-wrap"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
 
 <script src="script.js"></script>
 </body>

@@ -320,7 +320,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);tran
 .chat-unread{background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;}
 
 /* CHAT ROOM */
-#chat-room{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;flex-direction:column;}
+#chat-room{position:fixed;inset:0;background:var(--bg);z-index:700;display:none;flex-direction:column;}
 #chat-room.active{display:flex;}
 .chat-room-header{height:56px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;gap:0.8rem;flex-shrink:0;}
 .chat-room-avatar{width:36px;height:36px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;}
@@ -445,7 +445,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);tran
 .story-media img,.story-media video{max-width:100%;max-height:100%;object-fit:contain;}
 
 /* POST DETAIL */
-#post-detail{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;flex-direction:column;}
+#post-detail{position:fixed;inset:0;background:var(--bg);z-index:600;display:none;flex-direction:column;}
 #post-detail.active{display:flex;}
 .pd-header{height:56px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;gap:0.8rem;flex-shrink:0;}
 .pd-content{flex:1;overflow-y:auto;}
@@ -463,7 +463,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);tran
 .comment-input:focus{border-color:var(--accent);}
 
 /* USER PROFILE PAGE */
-#user-profile{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;flex-direction:column;}
+#user-profile{position:fixed;inset:0;background:var(--bg);z-index:600;display:none;flex-direction:column;}
 #user-profile.active{display:flex;}
 
 /* SETTINGS PAGE */
@@ -527,4 +527,112 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);tran
   #story-viewer{max-width:420px;}
   .modal-sheet{max-width:600px;}
   .reel-item{max-width:420px;margin:0 auto;}
+}
+
+/* ===== SEARCH PAGE ===== */
+#search-page{position:fixed;inset:0;background:var(--bg);z-index:600;display:none;flex-direction:column;}
+#search-page.active{display:flex;}
+.search-header{height:56px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;gap:0.8rem;flex-shrink:0;}
+.search-input-wrap{flex:1;position:relative;}
+.search-input-wrap input{width:100%;background:var(--bg3);border:1.5px solid var(--border);color:var(--text);padding:0.6rem 1rem 0.6rem 2.3rem;border-radius:50px;font-family:'Outfit',sans-serif;font-size:0.95rem;outline:none;transition:border-color var(--transition);}
+.search-input-wrap input:focus{border-color:var(--accent);}
+.search-input-wrap i{position:absolute;left:0.85rem;top:50%;transform:translateY(-50%);color:var(--text3);}
+.search-body{flex:1;overflow-y:auto;}
+.search-section-label{font-size:0.72rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:0.8rem 1rem 0.4rem;}
+.search-user-item{display:flex;align-items:center;gap:0.85rem;padding:0.75rem 1rem;cursor:pointer;transition:background var(--transition);}
+.search-user-item:hover{background:var(--accent-hover);}
+.search-user-name{font-weight:600;font-size:0.95rem;}
+.search-user-bio{font-size:0.78rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+.search-user-follow{margin-left:auto;background:var(--accent);color:#fff;border:none;padding:0.35rem 0.9rem;border-radius:50px;font-size:0.8rem;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:opacity var(--transition);flex-shrink:0;}
+.search-user-follow:hover{opacity:0.85;}
+.search-user-follow.following{background:var(--bg3);color:var(--text2);border:1.5px solid var(--border);}
+.search-post-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:0;}
+.search-trending{padding:0.5rem 1rem;}
+.search-trending-tag{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:50px;padding:0.4rem 1rem;font-size:0.85rem;cursor:pointer;transition:all var(--transition);margin:0.25rem 0.25rem 0.25rem 0;}
+.search-trending-tag:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ===== ADMIN CHART ===== */
+.admin-chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem;margin-bottom:1.5rem;}
+.admin-chart-title{font-family:'Syne',sans-serif;font-size:0.95rem;font-weight:700;margin-bottom:1rem;color:var(--text);}
+.chart-bar-row{display:flex;align-items:center;gap:0.75rem;margin-bottom:0.6rem;}
+.chart-bar-label{font-size:0.8rem;color:var(--text2);width:60px;flex-shrink:0;text-align:right;}
+.chart-bar-track{flex:1;background:var(--bg3);border-radius:50px;height:10px;overflow:hidden;}
+.chart-bar-fill{height:100%;border-radius:50px;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width 0.8s cubic-bezier(0.4,0,0.2,1);}
+.chart-bar-val{font-size:0.8rem;font-weight:600;color:var(--text);width:36px;flex-shrink:0;}
+.admin-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1.5rem;}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.9rem;text-align:center;}
+.kpi-num{font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--accent);}
+.kpi-label{font-size:0.72rem;color:var(--text3);margin-top:2px;}
+.kpi-trend{font-size:0.7rem;margin-top:3px;}
+.kpi-trend.up{color:#22c55e;}
+.kpi-trend.down{color:#ef4444;}
+.activity-feed{max-height:280px;overflow-y:auto;}
+.activity-item{display:flex;align-items:flex-start;gap:0.75rem;padding:0.65rem 0;border-bottom:1px solid var(--border2);}
+.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.activity-dot.green{background:#22c55e;}
+.activity-dot.blue{background:#3b82f6;}
+.activity-dot.red{background:#ef4444;}
+.activity-dot.yellow{background:#f59e0b;}
+.activity-text{flex:1;font-size:0.82rem;line-height:1.5;}
+.activity-time{font-size:0.7rem;color:var(--text3);flex-shrink:0;}
+.admin-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1rem;}
+.admin-tab-btn{flex:1;padding:0.7rem;text-align:center;cursor:pointer;color:var(--text2);font-size:0.85rem;font-weight:500;border-bottom:2px solid transparent;transition:all var(--transition);background:none;border-top:none;border-left:none;border-right:none;font-family:'Outfit',sans-serif;}
+.admin-tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.admin-tab-panel{display:none;}
+.admin-tab-panel.active{display:block;}
+.donut-wrap{display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;}
+.donut-svg{flex-shrink:0;}
+.donut-legend{display:flex;flex-direction:column;gap:0.5rem;}
+.donut-legend-item{display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;}
+.donut-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* ===== DESKTOP LANDSCAPE FIX ===== */
+/* Force full landscape layout on any screen >= 768px width regardless of orientation */
+@media(min-width:768px){
+  /* Panels don't use transform on desktop — use left offset from sidebar instead */
+  #chat-room,#post-detail,#user-profile,#settings-page{
+    left: var(--sidebar-w);
+    right: 0;
+    max-width: none;
+    transform: none;
+    width: auto;
+  }
+  #story-viewer{
+    left: var(--sidebar-w);
+    right: 0;
+    max-width: none;
+    transform: none;
+    width: auto;
+  }
+  /* Search page full width on desktop too */
+  #search-page{
+    left: var(--sidebar-w);
+    right: 0;
+    max-width: none;
+    transform: none;
+    width: auto;
+  }
+  /* Feed content max-width for readability */
+  #tab-home .stories-row,
+  #tab-home #feed-list,
+  #tab-chat,
+  #tab-notif .notif-list,
+  #tab-profile #my-profile-content{
+    max-width: 680px;
+  }
+  .reel-item{max-width:none;margin:0;}
+  /* Make admin stats grid larger on desktop */
+  .admin-stats-grid{grid-template-columns:repeat(3,1fr);}
+  .admin-kpi-grid{grid-template-columns:repeat(4,1fr);}
+}
+
+/* Tablet portrait (768-1024) keep sidebar but compact */
+@media(min-width:768px) and (max-width:1023px){
+  :root{--sidebar-w:200px;}
+}
+/* Large desktop */
+@media(min-width:1280px){
+  :root{--sidebar-w:260px;}
+  #tab-home .stories-row,
+  #tab-home #feed-list{max-width:760px;}
 }

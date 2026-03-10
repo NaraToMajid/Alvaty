@@ -2,10 +2,10 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-<title>Altavy - Social Media Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Altavy</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,7 +17,7 @@
   <div class="landing-content">
     <div class="landing-logo-fallback" id="landing-logo">A</div>
     <h1 class="landing-title">Selamat datang di Altavy</h1>
-    <p class="landing-desc">Platform sosial media modern untuk berbagi momen, berinteraksi, dan terhubung dengan orang lain dalam satu tempat.</p>
+    <p class="landing-desc">Platform sosial media sederhana untuk berbagi momen, berinteraksi, dan terhubung dengan orang lain dalam satu tempat.</p>
     <button class="btn-join" onclick="showPage('auth-choice')">Bergabung dengan Kami</button>
   </div>
 </div>
@@ -33,7 +33,7 @@
     <div class="auth-choice-options">
       <button class="auth-option-btn" onclick="showPage('login')">
         <i class="fa fa-right-to-bracket"></i>
-        <div><span>Sudah punya akun? Masuk</span><span class="opt-label">Login dengan username & password</span></div>
+        <div><span>Sudah punya akun? Masuk</span><span class="opt-label">Login dengan username &amp; password</span></div>
       </button>
       <button class="auth-option-btn" onclick="showPage('register')">
         <i class="fa fa-user-plus"></i>
@@ -86,7 +86,7 @@
       <input class="form-input" type="password" id="reg-confirm" placeholder="Ulangi password" autocomplete="new-password">
     </div>
     <p class="form-error" id="reg-error">Error</p>
-    <button class="btn-primary" onclick="doRegister()">Daftar & Masuk</button>
+    <button class="btn-primary" onclick="doRegister()">Daftar &amp; Masuk</button>
     <div class="auth-switch">Sudah punya akun? <a onclick="showPage('login')">Masuk</a></div>
   </div>
 </div>
@@ -102,12 +102,6 @@
     </button>
     <button class="sidebar-nav-item" id="sidebar-nav-reels" onclick="switchTab('reels',this)">
       <i class="fa fa-film"></i> Reels
-    </button>
-    <button class="sidebar-nav-item" id="sidebar-nav-notes" onclick="switchTab('notes',this)">
-      <i class="fa fa-note-sticky"></i> Catatan
-    </button>
-    <button class="sidebar-nav-item" id="sidebar-nav-ai" onclick="openAIAssistant()">
-      <i class="fa fa-robot"></i> AI Asisten
     </button>
     <button class="sidebar-nav-item" id="sidebar-nav-search" onclick="openSearchPage()">
       <i class="fa fa-search"></i> Cari
@@ -141,7 +135,6 @@
       <span class="header-logo">Altavy</span>
       <div class="header-actions">
         <button class="icon-btn" onclick="openSearchPage()"><i class="fa fa-search"></i></button>
-        <button class="icon-btn" onclick="openAIAssistant()"><i class="fa fa-robot"></i></button>
         <button class="icon-btn" onclick="openSettings()"><i class="fa fa-cog"></i></button>
       </div>
     </div>
@@ -164,16 +157,6 @@
         <div class="reels-container" id="reels-container"></div>
       </div>
 
-      <!-- NOTES TAB -->
-      <div id="tab-notes" class="tab-panel">
-        <div class="notes-header">
-          <button class="btn-primary notes-create-btn" onclick="openCreateNote()">
-            <i class="fa fa-plus"></i> Buat Catatan Baru
-          </button>
-        </div>
-        <div class="notes-grid" id="notes-grid"></div>
-      </div>
-
       <!-- CHAT TAB -->
       <div id="tab-chat" class="tab-panel">
         <div class="chat-search">
@@ -194,19 +177,13 @@
       </div>
     </div>
 
-    <!-- MOBILE BOTTOM NAV (POSITIONED ABOVE) -->
+    <!-- MOBILE BOTTOM NAV -->
     <nav class="bottom-nav">
       <div class="nav-item active" onclick="switchTab('home',this)" id="nav-home">
         <i class="fa fa-house nav-icon"></i><span class="nav-label">Home</span>
       </div>
       <div class="nav-item" onclick="switchTab('reels',this)" id="nav-reels">
         <i class="fa fa-film nav-icon"></i><span class="nav-label">Reels</span>
-      </div>
-      <div class="nav-item" onclick="switchTab('notes',this)" id="nav-notes">
-        <i class="fa fa-note-sticky nav-icon"></i><span class="nav-label">Catatan</span>
-      </div>
-      <div class="nav-item" onclick="openAIAssistant()" id="nav-ai">
-        <i class="fa fa-robot nav-icon"></i><span class="nav-label">AI</span>
       </div>
       <div class="nav-item" onclick="switchTab('chat',this)" id="nav-chat">
         <i class="fa fa-comment-dots nav-icon"></i><span class="nav-label">Chat</span>
@@ -265,7 +242,7 @@
 <div id="post-detail">
   <div class="pd-header">
     <button class="icon-btn" onclick="closePostDetail()"><i class="fa fa-arrow-left"></i></button>
-    <span style="font-family:'Inter',sans-serif;font-weight:700;">Postingan</span>
+    <span style="font-family:'Syne',sans-serif;font-weight:700;">Postingan</span>
   </div>
   <div class="pd-content" id="pd-content"></div>
   <div class="comment-input-row">
@@ -278,43 +255,23 @@
 <div id="user-profile">
   <div class="pd-header">
     <button class="icon-btn" onclick="closeUserProfile()"><i class="fa fa-arrow-left"></i></button>
-    <span id="up-username" style="font-family:'Inter',sans-serif;font-weight:700;"></span>
+    <span id="up-username" style="font-family:'Syne',sans-serif;font-weight:700;"></span>
   </div>
   <div style="flex:1;overflow-y:auto;" id="up-content"></div>
-</div>
-
-<!-- AI ASSISTANT PAGE -->
-<div id="ai-assistant">
-  <div class="pd-header">
-    <button class="icon-btn" onclick="closeAIAssistant()"><i class="fa fa-arrow-left"></i></button>
-    <span style="font-family:'Inter',sans-serif;font-weight:700;">AI Asisten Altavy</span>
-  </div>
-  <div class="ai-messages" id="ai-messages">
-    <div class="ai-message ai">
-      <div class="ai-avatar"><i class="fa fa-robot"></i></div>
-      <div class="ai-bubble">
-        Halo! Saya asisten AI Altavy. Saya tahu semua tentang fitur, pengguna, konten, dan cara menggunakan platform ini. Ada yang bisa saya bantu?
-      </div>
-    </div>
-  </div>
-  <div class="ai-input-row">
-    <input type="text" id="ai-input" placeholder="Tanya apa saja tentang Altavy..." onkeydown="if(event.key==='Enter')sendAIMessage()">
-    <button class="send-btn" onclick="sendAIMessage()"><i class="fa fa-paper-plane"></i></button>
-  </div>
 </div>
 
 <!-- SETTINGS PAGE -->
 <div id="settings-page">
   <div class="settings-header">
     <button class="icon-btn" onclick="closeSettings()"><i class="fa fa-arrow-left"></i></button>
-    <span style="font-family:'Inter',sans-serif;font-weight:700;flex:1;">Pengaturan</span>
+    <span style="font-family:'Syne',sans-serif;font-weight:700;flex:1;">Pengaturan</span>
   </div>
   <div class="settings-body">
     <div style="padding:1rem;">
       <div class="settings-section">
         <div class="settings-section-title">Akun</div>
         <div class="settings-item" onclick="openEditProfile()">
-          <i class="fa fa-image"></i><span class="settings-label">Ganti Foto Profil & Bio</span><i class="fa fa-chevron-right settings-arrow"></i>
+          <i class="fa fa-image"></i><span class="settings-label">Ganti Foto Profil &amp; Bio</span><i class="fa fa-chevron-right settings-arrow"></i>
         </div>
         <div class="settings-item" onclick="openEditUsername()">
           <i class="fa fa-user"></i><span class="settings-label">Ubah Username</span><i class="fa fa-chevron-right settings-arrow"></i>
@@ -324,12 +281,9 @@
         </div>
       </div>
       <div class="settings-section">
-        <div class="settings-section-title">Privasi & Keamanan</div>
+        <div class="settings-section-title">Privasi &amp; Keamanan</div>
         <div class="settings-item" onclick="openBlockedList()">
           <i class="fa fa-ban"></i><span class="settings-label">Kelola Blokiran</span><i class="fa fa-chevron-right settings-arrow"></i>
-        </div>
-        <div class="settings-item" onclick="openSessionsList()">
-          <i class="fa fa-clock"></i><span class="settings-label">Sesi Aktif</span><i class="fa fa-chevron-right settings-arrow"></i>
         </div>
       </div>
       <div class="settings-section">
@@ -345,10 +299,7 @@
       <div class="settings-section">
         <div class="settings-section-title">Lainnya</div>
         <div class="settings-item" onclick="openFeedback()">
-          <i class="fa fa-comment-alt"></i><span class="settings-label">Kirim Kritik & Saran</span><i class="fa fa-chevron-right settings-arrow"></i>
-        </div>
-        <div class="settings-item" onclick="exportUserData()">
-          <i class="fa fa-download"></i><span class="settings-label">Ekspor Data Saya</span><i class="fa fa-chevron-right settings-arrow"></i>
+          <i class="fa fa-comment-alt"></i><span class="settings-label">Kirim Kritik &amp; Saran</span><i class="fa fa-chevron-right settings-arrow"></i>
         </div>
         <div class="settings-item" onclick="doLogout()" style="color:#ef4444;">
           <i class="fa fa-sign-out" style="color:#ef4444;"></i><span class="settings-label" style="color:#ef4444;">Logout</span>
@@ -376,7 +327,7 @@
 <div id="hashtag-page">
   <div class="pd-header">
     <button class="icon-btn" onclick="closeHashtagPage()"><i class="fa fa-arrow-left"></i></button>
-    <span id="hashtag-title" style="font-family:'Inter',sans-serif;font-weight:700;color:var(--accent);"></span>
+    <span id="hashtag-title" style="font-family:'Syne',sans-serif;font-weight:700;color:var(--accent);"></span>
   </div>
   <div style="flex:1;overflow-y:auto;padding:0.5rem;" id="hashtag-list"></div>
 </div>
@@ -385,7 +336,7 @@
 <div id="followers-page">
   <div class="pd-header">
     <button class="icon-btn" onclick="closeFollowersPage()"><i class="fa fa-arrow-left"></i></button>
-    <span id="followers-page-title" style="font-family:'Inter',sans-serif;font-weight:700;"></span>
+    <span id="followers-page-title" style="font-family:'Syne',sans-serif;font-weight:700;"></span>
   </div>
   <div style="flex:1;overflow-y:auto;" id="followers-list-wrap"></div>
 </div>
@@ -402,12 +353,12 @@
   <div class="search-body" id="search-body">
     <div class="search-section-label">Trending Tag</div>
     <div class="search-trending" id="search-trending">
-      <span class="search-trending-tag" onclick="searchByTag('photography')">photography</span>
-      <span class="search-trending-tag" onclick="searchByTag('travel')">travel</span>
-      <span class="search-trending-tag" onclick="searchByTag('food')">food</span>
-      <span class="search-trending-tag" onclick="searchByTag('art')">art</span>
-      <span class="search-trending-tag" onclick="searchByTag('music')">music</span>
-      <span class="search-trending-tag" onclick="searchByTag('nature')">nature</span>
+      <span class="search-trending-tag" onclick="searchByTag('photography')">#photography</span>
+      <span class="search-trending-tag" onclick="searchByTag('travel')">#travel</span>
+      <span class="search-trending-tag" onclick="searchByTag('food')">#food</span>
+      <span class="search-trending-tag" onclick="searchByTag('art')">#art</span>
+      <span class="search-trending-tag" onclick="searchByTag('music')">#music</span>
+      <span class="search-trending-tag" onclick="searchByTag('nature')">#nature</span>
     </div>
     <div class="search-section-label" style="margin-top:0.5rem;">Pengguna</div>
     <div id="search-results-users"></div>
@@ -417,7 +368,6 @@
 </div>
 
 <!-- MODALS -->
-
 <!-- Create Post -->
 <div class="modal-overlay" id="modal-create-post">
   <div class="modal-sheet">
@@ -433,7 +383,7 @@
     </div>
     <div id="post-preview" class="upload-preview" style="display:none;"></div>
     <textarea class="caption-input" id="post-caption" placeholder="Tulis caption... #hashtag @mention" style="margin:1rem 0;"></textarea>
-    <div style="font-size:0.78rem;color:var(--text3);margin-bottom:0.5rem;"><i class="fa fa-info-circle"></i> Gunakan #hashtag dan @mention di caption</div>
+    <div style="font-size:0.78rem;color:var(--text3);margin-bottom:0.5rem;"><i class="fa fa-info-circle"></i> Gunakan <span style="color:var(--accent);">#hashtag</span> dan <span style="color:var(--accent);">@mention</span> di caption</div>
     <button class="btn-primary" onclick="submitPost()">Posting</button>
   </div>
 </div>
@@ -454,75 +404,6 @@
     <div id="reel-preview" class="upload-preview" style="display:none;"></div>
     <textarea class="caption-input" id="reel-caption" placeholder="Caption reels... #hashtag @mention" style="margin:1rem 0;"></textarea>
     <button class="btn-primary" onclick="submitReel()">Upload Reels</button>
-  </div>
-</div>
-
-<!-- Create Note -->
-<div class="modal-overlay" id="modal-create-note">
-  <div class="modal-sheet" style="max-width:600px;">
-    <div class="modal-header">
-      <span class="modal-title">Buat Catatan</span>
-      <button class="modal-close" onclick="closeModal('modal-create-note')"><i class="fa fa-times"></i></button>
-    </div>
-    <div class="form-field">
-      <label>Judul Catatan</label>
-      <input class="form-input" type="text" id="note-title" placeholder="Masukkan judul catatan">
-    </div>
-    <div class="form-field">
-      <label>Isi Catatan</label>
-      <textarea class="caption-input" id="note-content" placeholder="Tulis catatan kamu di sini..." style="min-height:200px;"></textarea>
-    </div>
-    <div class="form-field">
-      <label>Tag (pisahkan dengan koma)</label>
-      <input class="form-input" type="text" id="note-tags" placeholder="contoh: ide, kerja, pribadi">
-    </div>
-    <div class="form-field">
-      <label>Warna Catatan</label>
-      <div class="note-color-picker">
-        <div class="note-color-option" style="background:#1a1a1a;" onclick="selectNoteColor('#1a1a1a')"></div>
-        <div class="note-color-option" style="background:#2d1a1a;" onclick="selectNoteColor('#2d1a1a')"></div>
-        <div class="note-color-option" style="background:#1a2d1a;" onclick="selectNoteColor('#1a2d1a')"></div>
-        <div class="note-color-option" style="background:#1a1a2d;" onclick="selectNoteColor('#1a1a2d')"></div>
-        <div class="note-color-option" style="background:#2d2d1a;" onclick="selectNoteColor('#2d2d1a')"></div>
-        <input type="hidden" id="note-color" value="#1a1a1a">
-      </div>
-    </div>
-    <button class="btn-primary" onclick="submitNote()">Simpan Catatan</button>
-  </div>
-</div>
-
-<!-- Edit Note -->
-<div class="modal-overlay" id="modal-edit-note">
-  <div class="modal-sheet" style="max-width:600px;">
-    <div class="modal-header">
-      <span class="modal-title">Edit Catatan</span>
-      <button class="modal-close" onclick="closeModal('modal-edit-note')"><i class="fa fa-times"></i></button>
-    </div>
-    <input type="hidden" id="edit-note-id">
-    <div class="form-field">
-      <label>Judul Catatan</label>
-      <input class="form-input" type="text" id="edit-note-title" placeholder="Masukkan judul catatan">
-    </div>
-    <div class="form-field">
-      <label>Isi Catatan</label>
-      <textarea class="caption-input" id="edit-note-content" placeholder="Tulis catatan kamu di sini..." style="min-height:200px;"></textarea>
-    </div>
-    <div class="form-field">
-      <label>Tag (pisahkan dengan koma)</label>
-      <input class="form-input" type="text" id="edit-note-tags" placeholder="contoh: ide, kerja, pribadi">
-    </div>
-    <div class="form-field">
-      <label>Warna Catatan</label>
-      <div class="note-color-picker">
-        <div class="note-color-option" style="background:#1a1a1a;" onclick="selectEditNoteColor('#1a1a1a')"></div>
-        <div class="note-color-option" style="background:#2d1a1a;" onclick="selectEditNoteColor('#2d1a1a')"></div>
-        <div class="note-color-option" style="background:#1a2d1a;" onclick="selectEditNoteColor('#1a2d1a')"></div>
-        <div class="note-color-option" style="background:#1a1a2d;" onclick="selectEditNoteColor('#1a1a2d')"></div>
-        <div class="note-color-option" style="background:#2d2d1a;" onclick="selectEditNoteColor('#2d2d1a')"></div>
-        <input type="hidden" id="edit-note-color" value="#1a1a1a">
-      </div>
-    </div>
-    <button class="btn-primary" onclick="updateNote()">Update Catatan</button>
   </div>
 </div>
 
@@ -603,22 +484,11 @@
   </div>
 </div>
 
-<!-- Sessions -->
-<div class="modal-overlay" id="modal-sessions">
-  <div class="modal-sheet">
-    <div class="modal-header">
-      <span class="modal-title">Sesi Aktif</span>
-      <button class="modal-close" onclick="closeModal('modal-sessions')"><i class="fa fa-times"></i></button>
-    </div>
-    <div id="sessions-list-wrap"></div>
-  </div>
-</div>
-
 <!-- Feedback -->
 <div class="modal-overlay" id="modal-feedback">
   <div class="modal-sheet">
     <div class="modal-header">
-      <span class="modal-title">Kirim Kritik & Saran</span>
+      <span class="modal-title">Kirim Kritik &amp; Saran</span>
       <button class="modal-close" onclick="closeModal('modal-feedback')"><i class="fa fa-times"></i></button>
     </div>
     <p style="color:var(--text2);font-size:0.9rem;margin-bottom:1rem;line-height:1.6;">Bantu kami tingkatkan Altavy dengan kritik dan saran kamu.</p>

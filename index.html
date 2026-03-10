@@ -9,6 +9,13 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<script>
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  var el = document.getElementById('page-'+name);
+  if(el) el.classList.add('active');
+}
+</script>
 <div id="app">
 
 <!-- LANDING -->

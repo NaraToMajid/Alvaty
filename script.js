@@ -572,15 +572,20 @@ async function searchUsersForChat(q){
 }
 
 async function openChatRoom(userId, username, avatarUrl){
+  // Close any overlays that might be on top (or below) to ensure chat is visible
+  // chat-room z-index is 700, above user-profile(600) — but we still open both
+  // user presses "chat" from profile, both can be open simultaneously — that's fine
+  // since chat z-index > profile z-index. Close profile if explicitly navigating to chat.
   currentChatUser = {id_user:userId, username, foto_profil_url:avatarUrl};
   document.getElementById('cr-name').textContent = username;
   document.getElementById('cr-status').textContent = 'Online';
   const ava = document.getElementById('cr-avatar');
   ava.innerHTML = avatarUrl?`<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;">`:(username[0]||'?').toUpperCase();
+  // Close user-profile so chat appears cleanly on top without confusion
+  document.getElementById('user-profile').classList.remove('active');
   document.getElementById('chat-room').classList.add('active');
   pushRoute(`/chat/${userId}`);
   await loadMessages();
-  // Mark messages as read when opening chat
   await markMessagesRead();
 }
 
@@ -1084,57 +1089,6 @@ async function submitFeedback(){
 }
 
 // ==================== ADMIN ====================
-async function loadAdminDashboard(){
-  const content=document.getElementById('admin-content');
-  content.innerHTML='<div class="loading-wrap"><div class="spinner"></div></div>';
-  try {
-    const [users,posts,reels,stories,comments,msgs,feedbacks]=await Promise.all([
-      SupabaseClient.select('Users_Alvaty','','created_at.desc','1000'),
-      SupabaseClient.select('Posts_Alvaty','','created_at.desc','1000'),
-      SupabaseClient.select('Reels_Alvaty','','created_at.desc','1000'),
-      SupabaseClient.select('Stories_Alvaty','','created_at.desc','1000'),
-      SupabaseClient.select('Comments_Alvaty','','created_at.desc','1000'),
-      SupabaseClient.select('Messages_Alvaty','','created_at.desc','1000'),
-      SupabaseClient.select('Feedback_Alvaty','','created_at.desc','100'),
-    ]);
-    content.innerHTML=`
-    <div class="admin-stats-grid">
-      <div class="stat-card"><div class="stat-card-num">${users.length}</div><div class="stat-card-label">Total Pengguna</div></div>
-      <div class="stat-card"><div class="stat-card-num">${posts.length}</div><div class="stat-card-label">Total Postingan</div></div>
-      <div class="stat-card"><div class="stat-card-num">${reels.length}</div><div class="stat-card-label">Total Reels</div></div>
-      <div class="stat-card"><div class="stat-card-num">${stories.length}</div><div class="stat-card-label">Total Story</div></div>
-      <div class="stat-card"><div class="stat-card-num">${comments.length}</div><div class="stat-card-label">Total Komentar</div></div>
-      <div class="stat-card"><div class="stat-card-num">${msgs.length}</div><div class="stat-card-label">Total Pesan Chat</div></div>
-    </div>
-    <div class="admin-section">
-      <div class="admin-section-header"><div class="admin-section-title">Data Pengguna</div></div>
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead><tr><th>#</th><th>Username</th><th>Password</th><th>Bio</th><th>Daftar</th></tr></thead>
-          <tbody>${users.map((u,i)=>`<tr><td>${i+1}</td><td><strong>${u.username}</strong></td><td><code style="font-size:0.78rem;background:var(--bg3);padding:2px 6px;border-radius:4px;">${u.password_hash}</code></td><td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.bio||'-'}</td><td>${timeAgo(u.created_at)}</td></tr>`).join('')}</tbody>
-        </table>
-      </div>
-    </div>
-    <div class="admin-section">
-      <div class="admin-section-header"><div class="admin-section-title">Postingan Terbaru</div></div>
-      <div class="admin-table-wrap">
-        <table class="admin-table">
-          <thead><tr><th>ID</th><th>User ID</th><th>Caption</th><th>Tipe</th><th>Waktu</th></tr></thead>
-          <tbody>${posts.slice(0,20).map(p=>`<tr><td style="font-size:0.7rem;color:var(--text3);">${p.id_post?.substring(0,8)}...</td><td style="font-size:0.7rem;">${p.user_id?.substring(0,8)}...</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.caption||'-'}</td><td><span style="background:var(--accent-glow);color:var(--accent);padding:2px 8px;border-radius:50px;font-size:0.75rem;">${p.media_type||'image'}</span></td><td>${timeAgo(p.created_at)}</td></tr>`).join('')}</tbody>
-        </table>
-      </div>
-    </div>
-    <div class="admin-section">
-      <div class="admin-section-header"><div class="admin-section-title">Kritik & Saran (${feedbacks.length})</div></div>
-      ${feedbacks.length?feedbacks.map(f=>`<div class="feedback-item">
-        <div class="feedback-user"><i class="fa fa-user"></i> ${f.user_id||'Anonim'}</div>
-        <div class="feedback-text">${f.pesan}</div>
-        <div class="feedback-time">${timeAgo(f.created_at)}</div>
-      </div>`).join(''):'<div class="empty-state"><i class="fa fa-comment"></i><p>Belum ada kritik & saran</p></div>'}
-    </div>`;
-  } catch(e){ content.innerHTML=`<div class="empty-state"><i class="fa fa-exclamation-triangle"></i><p>Gagal memuat: ${e.message}</p></div>`; }
-}
-
 function adminLogout(){
   currentUser=null; localStorage.removeItem('altavy_user'); showPage('landing');
 }
@@ -1150,4 +1104,365 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{
 function openReelById(rid){
   switchTab('reels', document.getElementById('nav-reels'));
   setTimeout(()=>{ const el=document.getElementById('reel-'+rid); if(el) el.scrollIntoView({behavior:'smooth'}); },500);
+}
+
+
+// ==================== SEARCH ====================
+let searchDebounce = null;
+
+function openSearchPage(){
+  document.getElementById('search-page').classList.add('active');
+  setTimeout(()=>document.getElementById('search-input')?.focus(), 150);
+  loadAllUsersPreview();
+}
+
+function closeSearchPage(){
+  document.getElementById('search-page').classList.remove('active');
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-results-users').innerHTML = '';
+  document.getElementById('search-results-posts').innerHTML = '';
+}
+
+async function loadAllUsersPreview(){
+  try {
+    const users = await SupabaseClient.select('Users_Alvaty','','username.asc','20');
+    renderUserSearchResults(users.filter(u=>u.id_user!==currentUser?.id_user));
+  } catch(e){}
+}
+
+function handleSearch(q){
+  clearTimeout(searchDebounce);
+  if(!q.trim()){
+    loadAllUsersPreview();
+    document.getElementById('search-results-posts').innerHTML = '';
+    return;
+  }
+  searchDebounce = setTimeout(()=>doSearch(q.trim()), 300);
+}
+
+async function doSearch(q){
+  try {
+    // Search users
+    const users = await SupabaseClient.select('Users_Alvaty',`username=ilike.*${q}*`,'username.asc','15');
+    renderUserSearchResults(users.filter(u=>u.id_user!==currentUser?.id_user));
+    // Search posts by caption
+    const posts = await SupabaseClient.select('Posts_Alvaty',`caption=ilike.*${q}*`,'created_at.desc','12');
+    renderPostSearchResults(posts);
+  } catch(e){}
+}
+
+async function searchByTag(tag){
+  document.getElementById('search-input').value = '#'+tag;
+  const posts = await SupabaseClient.select('Posts_Alvaty',`caption=ilike.*${tag}*`,'created_at.desc','12');
+  renderPostSearchResults(posts);
+  document.getElementById('search-results-users').innerHTML = '';
+}
+
+async function renderUserSearchResults(users){
+  const wrap = document.getElementById('search-results-users');
+  if(!users.length){
+    wrap.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><i class="fa fa-user-slash"></i><p>Tidak ada pengguna ditemukan</p></div>';
+    return;
+  }
+  // Check follow status
+  let followedIds = new Set();
+  if(currentUser){
+    try {
+      const following = await SupabaseClient.select('Followers_Alvaty',`follower_id=eq.${currentUser.id_user}`,'created_at.asc','500');
+      following.forEach(f=>followedIds.add(f.following_id));
+    } catch(e){}
+  }
+  wrap.innerHTML = users.map(u=>{
+    const isFollowing = followedIds.has(u.id_user);
+    return `<div class="search-user-item" onclick="openUserProfileFromSearch('${u.id_user}','${u.username}')">
+      <div style="flex-shrink:0;">${avatarEl(u,44)}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="search-user-name">${u.username}</div>
+        <div class="search-user-bio">${u.bio||'Belum ada bio'}</div>
+      </div>
+      ${currentUser&&u.id_user!==currentUser.id_user?`<button class="search-user-follow ${isFollowing?'following':''}" onclick="event.stopPropagation();toggleFollowSearch('${u.id_user}',this)">${isFollowing?'Mengikuti':'Ikuti'}</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderPostSearchResults(posts){
+  const wrap = document.getElementById('search-results-posts');
+  const label = document.getElementById('search-posts-label');
+  if(!posts.length){ wrap.innerHTML=''; if(label) label.style.display='none'; return; }
+  if(label) label.style.display='block';
+  wrap.innerHTML = posts.map(p=>`
+    <div class="post-thumb" onclick="closeSearchPage();openPostDetail('${p.id_post}')">
+      ${p.media_type==='video'
+        ?`<video src="${p.media_url}" style="width:100%;height:100%;object-fit:cover;" muted></video><div class="video-badge"><i class="fa fa-video"></i></div>`
+        :`<img src="${p.media_url}" loading="lazy" alt="post">`}
+    </div>`).join('');
+}
+
+function openUserProfileFromSearch(userId, username){
+  closeSearchPage();
+  openUserProfile(userId, username);
+}
+
+async function toggleFollowSearch(userId, btn){
+  if(!currentUser) return;
+  const isFollowing = btn.classList.contains('following');
+  try {
+    if(isFollowing){
+      const ex = await SupabaseClient.select('Followers_Alvaty',`follower_id=eq.${currentUser.id_user}&following_id=eq.${userId}`,'created_at.asc','1');
+      if(ex.length) await SupabaseClient.delete('Followers_Alvaty',`id_follow=eq.${ex[0].id_follow}`);
+      btn.textContent='Ikuti'; btn.classList.remove('following');
+    } else {
+      await SupabaseClient.insert('Followers_Alvaty',{follower_id:currentUser.id_user,following_id:userId});
+      await addNotification(userId,'follow',currentUser.id_user);
+      btn.textContent='Mengikuti'; btn.classList.add('following');
+    }
+  } catch(e){ showToast('Gagal','error'); }
+}
+
+// ==================== ADMIN ENHANCED ====================
+async function loadAdminDashboard(){
+  const content=document.getElementById('admin-content');
+  content.innerHTML='<div class="loading-wrap"><div class="spinner"></div></div>';
+  try {
+    const [users,posts,reels,stories,comments,msgs,feedbacks,likes]=await Promise.all([
+      SupabaseClient.select('Users_Alvaty','','created_at.desc','1000'),
+      SupabaseClient.select('Posts_Alvaty','','created_at.desc','1000'),
+      SupabaseClient.select('Reels_Alvaty','','created_at.desc','1000'),
+      SupabaseClient.select('Stories_Alvaty','','created_at.desc','1000'),
+      SupabaseClient.select('Comments_Alvaty','','created_at.desc','1000'),
+      SupabaseClient.select('Messages_Alvaty','','created_at.desc','1000'),
+      SupabaseClient.select('Feedback_Alvaty','','created_at.desc','100'),
+      SupabaseClient.select('Likes_Alvaty','','created_at.desc','1000'),
+    ]);
+
+    // --- Compute stats ---
+    const now = Date.now();
+    const day = 86400000;
+    const usersToday = users.filter(u=>now-new Date(u.created_at)<day).length;
+    const postsToday = posts.filter(p=>now-new Date(p.created_at)<day).length;
+    const msgsToday = msgs.filter(m=>now-new Date(m.created_at)<day).length;
+    const likesToday = likes.filter(l=>now-new Date(l.created_at)<day).length;
+
+    // Activity by hour (last 24h)
+    const hourBuckets = Array(24).fill(0);
+    posts.filter(p=>now-new Date(p.created_at)<day*1).forEach(p=>{
+      const h = new Date(p.created_at).getHours();
+      hourBuckets[h]++;
+    });
+
+    // Content type breakdown
+    const imgPosts = posts.filter(p=>p.media_type!=='video').length;
+    const vidPosts = posts.filter(p=>p.media_type==='video').length;
+    const maxHour = Math.max(...hourBuckets,1);
+
+    // Top 5 users by post count
+    const userPostCount = {};
+    posts.forEach(p=>{ userPostCount[p.user_id]=(userPostCount[p.user_id]||0)+1; });
+    const topUsers = Object.entries(userPostCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const topUserNames = {};
+    for(const [uid] of topUsers){
+      const u = users.find(x=>x.id_user===uid);
+      topUserNames[uid] = u?.username||uid.substring(0,8);
+    }
+    const maxPosts = topUsers[0]?.[1]||1;
+
+    // Recent activity feed
+    const allActivity = [
+      ...users.slice(0,5).map(u=>({type:'user',text:`@${u.username} mendaftar`,time:u.created_at,color:'green'})),
+      ...posts.slice(0,5).map(p=>({type:'post',text:`Postingan baru dibuat`,time:p.created_at,color:'blue'})),
+      ...msgs.slice(0,4).map(m=>({type:'msg',text:`Pesan baru dikirim`,time:m.created_at,color:'yellow'})),
+      ...likes.slice(0,4).map(l=>({type:'like',text:`Like baru`,time:l.created_at,color:'red'})),
+    ].sort((a,b)=>new Date(b.time)-new Date(a.time)).slice(0,15);
+
+    content.innerHTML=`
+    <!-- Admin Tabs -->
+    <div class="admin-tabs">
+      <button class="admin-tab-btn active" onclick="switchAdminTab('overview',this)">Overview</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('users',this)">Pengguna</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('content',this)">Konten</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('feedback',this)">Saran</button>
+    </div>
+
+    <!-- OVERVIEW TAB -->
+    <div class="admin-tab-panel active" id="admin-tab-overview">
+      <!-- KPI Cards -->
+      <div class="admin-kpi-grid">
+        <div class="kpi-card"><div class="kpi-num">${users.length}</div><div class="kpi-label">Total Pengguna</div><div class="kpi-trend up">+${usersToday} hari ini</div></div>
+        <div class="kpi-card"><div class="kpi-num">${posts.length}</div><div class="kpi-label">Total Postingan</div><div class="kpi-trend up">+${postsToday} hari ini</div></div>
+        <div class="kpi-card"><div class="kpi-num">${msgs.length}</div><div class="kpi-label">Total Pesan</div><div class="kpi-trend up">+${msgsToday} hari ini</div></div>
+        <div class="kpi-card"><div class="kpi-num">${likes.length}</div><div class="kpi-label">Total Like</div><div class="kpi-trend up">+${likesToday} hari ini</div></div>
+        <div class="kpi-card"><div class="kpi-num">${reels.length}</div><div class="kpi-label">Total Reels</div><div class="kpi-trend ${reels.length>0?'up':''}">Video pendek</div></div>
+        <div class="kpi-card"><div class="kpi-num">${stories.length}</div><div class="kpi-label">Total Stories</div><div class="kpi-trend">Aktif & expired</div></div>
+        <div class="kpi-card"><div class="kpi-num">${comments.length}</div><div class="kpi-label">Komentar</div><div class="kpi-trend">Total diskusi</div></div>
+        <div class="kpi-card"><div class="kpi-num">${feedbacks.length}</div><div class="kpi-label">Feedback</div><div class="kpi-trend">Masukan pengguna</div></div>
+      </div>
+
+      <!-- Chart: Post activity by hour -->
+      <div class="admin-chart-wrap">
+        <div class="admin-chart-title"><i class="fa fa-chart-bar" style="color:var(--accent);margin-right:6px;"></i>Aktivitas Postingan per Jam (24 jam terakhir)</div>
+        ${hourBuckets.map((v,i)=>`
+          <div class="chart-bar-row">
+            <div class="chart-bar-label">${String(i).padStart(2,'0')}:00</div>
+            <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${v?Math.max(4,(v/maxHour)*100):0}%"></div></div>
+            <div class="chart-bar-val">${v}</div>
+          </div>`).join('')}
+      </div>
+
+      <!-- Top Users Chart -->
+      <div class="admin-chart-wrap">
+        <div class="admin-chart-title"><i class="fa fa-trophy" style="color:var(--accent);margin-right:6px;"></i>Top 5 Pengguna Paling Aktif (Postingan)</div>
+        ${topUsers.map(([uid,count])=>`
+          <div class="chart-bar-row">
+            <div class="chart-bar-label" style="font-weight:600;color:var(--text);">@${topUserNames[uid]}</div>
+            <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${Math.max(4,(count/maxPosts)*100)}%;background:linear-gradient(90deg,var(--accent2),#60ef90)"></div></div>
+            <div class="chart-bar-val">${count}</div>
+          </div>`).join('')}
+        ${topUsers.length===0?'<div class="empty-state" style="padding:1rem;"><p>Belum ada data</p></div>':''}
+      </div>
+
+      <!-- Content breakdown + Activity -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+        <div class="admin-chart-wrap" style="margin-bottom:0;">
+          <div class="admin-chart-title"><i class="fa fa-pie-chart" style="color:var(--accent);margin-right:6px;"></i>Tipe Konten</div>
+          <div class="donut-wrap">
+            <svg class="donut-svg" width="80" height="80" viewBox="0 0 80 80">
+              ${(() => {
+                const total = imgPosts+vidPosts||1;
+                const imgAngle = (imgPosts/total)*360;
+                const r=28, cx=40, cy=40;
+                function arc(startDeg,endDeg,color){
+                  const s=startDeg*Math.PI/180, e=endDeg*Math.PI/180;
+                  const x1=cx+r*Math.cos(s-Math.PI/2), y1=cy+r*Math.sin(s-Math.PI/2);
+                  const x2=cx+r*Math.cos(e-Math.PI/2), y2=cy+r*Math.sin(e-Math.PI/2);
+                  const large=endDeg-startDeg>180?1:0;
+                  return `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${color}"/>`;
+                }
+                if(imgPosts===0) return `<circle cx="40" cy="40" r="28" fill="#3b82f6"/>`;
+                if(vidPosts===0) return `<circle cx="40" cy="40" r="28" fill="var(--accent)"/>`;
+                return arc(0,imgAngle,'var(--accent)')+arc(imgAngle,360,'#3b82f6');
+              })()}
+              <circle cx="40" cy="40" r="18" fill="var(--card)"/>
+            </svg>
+            <div class="donut-legend">
+              <div class="donut-legend-item"><div class="donut-legend-dot" style="background:var(--accent)"></div>Foto (${imgPosts})</div>
+              <div class="donut-legend-item"><div class="donut-legend-dot" style="background:#3b82f6"></div>Video (${vidPosts})</div>
+              <div class="donut-legend-item"><div class="donut-legend-dot" style="background:#f59e0b"></div>Reels (${reels.length})</div>
+            </div>
+          </div>
+        </div>
+        <div class="admin-chart-wrap" style="margin-bottom:0;">
+          <div class="admin-chart-title"><i class="fa fa-bolt" style="color:var(--accent);margin-right:6px;"></i>Aktivitas Terbaru</div>
+          <div class="activity-feed">
+            ${allActivity.map(a=>`
+              <div class="activity-item">
+                <div class="activity-dot ${a.color}"></div>
+                <div class="activity-text">${a.text}</div>
+                <div class="activity-time">${timeAgo(a.time)}</div>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS TAB -->
+    <div class="admin-tab-panel" id="admin-tab-users">
+      <div class="admin-section">
+        <div class="admin-section-header"><div class="admin-section-title">Data Pengguna (${users.length})</div></div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>#</th><th>Username</th><th>Password</th><th>Bio</th><th>Daftar</th><th>Aksi</th></tr></thead>
+            <tbody>${users.map((u,i)=>`<tr>
+              <td>${i+1}</td>
+              <td><strong>${u.username}</strong></td>
+              <td><code style="font-size:0.78rem;background:var(--bg3);padding:2px 6px;border-radius:4px;">${u.password_hash}</code></td>
+              <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.bio||'-'}</td>
+              <td>${timeAgo(u.created_at)}</td>
+              <td><button onclick="adminDeleteUser('${u.id_user}','${u.username}')" style="background:#ef4444;color:#fff;border:none;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:0.75rem;">Hapus</button></td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT TAB -->
+    <div class="admin-tab-panel" id="admin-tab-content">
+      <div class="admin-section">
+        <div class="admin-section-header"><div class="admin-section-title">Postingan Terbaru (${posts.length})</div></div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>ID</th><th>User ID</th><th>Caption</th><th>Tipe</th><th>Waktu</th><th>Aksi</th></tr></thead>
+            <tbody>${posts.slice(0,30).map(p=>`<tr>
+              <td style="font-size:0.7rem;color:var(--text3);">${p.id_post?.substring(0,8)}...</td>
+              <td style="font-size:0.7rem;">${p.user_id?.substring(0,8)}...</td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.caption||'-'}</td>
+              <td><span style="background:var(--accent-glow);color:var(--accent);padding:2px 8px;border-radius:50px;font-size:0.75rem;">${p.media_type||'image'}</span></td>
+              <td>${timeAgo(p.created_at)}</td>
+              <td><button onclick="adminDeletePost('${p.id_post}')" style="background:#ef4444;color:#fff;border:none;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:0.75rem;">Hapus</button></td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-section-header"><div class="admin-section-title">Reels (${reels.length})</div></div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>ID</th><th>User ID</th><th>Caption</th><th>Waktu</th><th>Aksi</th></tr></thead>
+            <tbody>${reels.slice(0,20).map(r=>`<tr>
+              <td style="font-size:0.7rem;color:var(--text3);">${r.id_reel?.substring(0,8)}...</td>
+              <td style="font-size:0.7rem;">${r.user_id?.substring(0,8)}...</td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.caption||'-'}</td>
+              <td>${timeAgo(r.created_at)}</td>
+              <td><button onclick="adminDeleteReel('${r.id_reel}')" style="background:#ef4444;color:#fff;border:none;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:0.75rem;">Hapus</button></td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FEEDBACK TAB -->
+    <div class="admin-tab-panel" id="admin-tab-feedback">
+      <div class="admin-section">
+        <div class="admin-section-header"><div class="admin-section-title">Kritik & Saran (${feedbacks.length})</div></div>
+        ${feedbacks.length?feedbacks.map(f=>`<div class="feedback-item">
+          <div class="feedback-user"><i class="fa fa-user"></i> ${f.user_id?f.user_id.substring(0,12)+'...':'Anonim'}</div>
+          <div class="feedback-text">${f.pesan}</div>
+          <div class="feedback-time">${timeAgo(f.created_at)}</div>
+        </div>`).join(''):'<div class="empty-state"><i class="fa fa-comment"></i><p>Belum ada kritik & saran</p></div>'}
+      </div>
+    </div>`;
+  } catch(e){ content.innerHTML=`<div class="empty-state"><i class="fa fa-exclamation-triangle"></i><p>Gagal memuat: ${e.message}</p></div>`; }
+}
+
+function switchAdminTab(tab, btn){
+  document.querySelectorAll('.admin-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.admin-tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('admin-tab-'+tab)?.classList.add('active');
+}
+
+async function adminDeleteUser(uid, username){
+  if(!confirm(`Hapus pengguna @${username}? Ini tidak bisa dibatalkan.`)) return;
+  try {
+    await SupabaseClient.delete('Users_Alvaty',`id_user=eq.${uid}`);
+    showToast('Pengguna dihapus','success');
+    loadAdminDashboard();
+  } catch(e){ showToast('Gagal hapus pengguna','error'); }
+}
+
+async function adminDeletePost(pid){
+  if(!confirm('Hapus postingan ini?')) return;
+  try {
+    await SupabaseClient.delete('Posts_Alvaty',`id_post=eq.${pid}`);
+    showToast('Postingan dihapus','success');
+    loadAdminDashboard();
+  } catch(e){ showToast('Gagal hapus','error'); }
+}
+
+async function adminDeleteReel(rid){
+  if(!confirm('Hapus reels ini?')) return;
+  try {
+    await SupabaseClient.delete('Reels_Alvaty',`id_reel=eq.${rid}`);
+    showToast('Reels dihapus','success');
+    loadAdminDashboard();
+  } catch(e){ showToast('Gagal hapus','error'); }
 }

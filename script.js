@@ -2196,5 +2196,5 @@ function showPage(name){
   const target = document.getElementById('page-' + name);
   if(target){
     target.classList.add('active');
-    {
+    )
 }

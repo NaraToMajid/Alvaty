@@ -2209,3 +2209,4 @@ function doLogout(){
   console.log("Logout");
   }
 }
+}

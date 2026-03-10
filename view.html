@@ -41,6 +41,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-
 .cta-banner h3{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;}
 .cta-banner p{font-size:0.875rem;opacity:0.85;margin-bottom:1rem;}
 .cta-banner a{background:#fff;color:var(--accent2);border:none;padding:0.65rem 1.5rem;border-radius:50px;font-family:'Outfit',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;}
+.hashtag{color:#3b82f6;cursor:pointer;font-weight:500;}
+.mention-link{color:var(--accent);font-weight:700;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -78,6 +80,18 @@ function avatarHtml(u, size=42){
   return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:${size*0.4}px;">${((u&&u.username)||'?')[0].toUpperCase()}</div>`;
 }
 
+function parseCaption(text){
+  if(!text) return '';
+  let safe = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  safe = safe.replace(/#([a-zA-Z0-9_]+)/g, (m, tag) =>
+    `<a href="/hashtag/${tag}" style="color:#3b82f6;font-weight:500;text-decoration:none;">#${tag}</a>`
+  );
+  safe = safe.replace(/@([a-zA-Z0-9_]+)/g, (m, username) =>
+    `<a href="/profile/${username}" style="color:#22c55e;font-weight:700;text-decoration:none;">@${username}</a>`
+  );
+  return safe;
+}
+
 const CTA = `<div class="cta-banner">
   <h3>Bergabung dengan Altavy</h3>
   <p>Buat akun gratis dan mulai berbagi momen kamu sekarang.</p>
@@ -102,7 +116,6 @@ async function loadView(){
       if(!post){ notFound('Postingan tidak ditemukan'); return; }
       const users = await supaGet('Users_Alvaty', `id_user=eq.${post.user_id}`);
       const user = users[0]||{username:'?'};
-      // Meta tags for OG
       document.title = `${user.username} di Altavy`;
       const isVideo = post.media_type==='video';
       const likes = await supaGet('Likes_Alvaty', `target_id=eq.${postId}&type_target=eq.post`, '1000');
@@ -123,7 +136,7 @@ async function loadView(){
             <div class="action-item"><i class="fa fa-heart" style="color:#ef4444;"></i> ${likes.length}</div>
             <div class="action-item"><i class="fa fa-comment"></i> ${comments.length}</div>
           </div>
-          ${post.caption ? `<div class="post-caption"><strong>${user.username}</strong> ${post.caption}</div>` : ''}
+          ${post.caption ? `<div class="post-caption"><strong>${user.username}</strong> ${parseCaption(post.caption)}</div>` : ''}
         </div>
         ${CTA}`;
     } catch(e){ notFound('Gagal memuat postingan'); }
@@ -183,10 +196,42 @@ async function loadView(){
             </div>
           </div>
           <div class="post-media"><video src="${reel.video_url}" controls playsinline style="width:100%;max-height:600px;object-fit:cover;"></video></div>
-          ${reel.caption ? `<div class="post-caption">${reel.caption}</div>` : ''}
+          ${reel.caption ? `<div class="post-caption">${parseCaption(reel.caption)}</div>` : ''}
         </div>
         ${CTA}`;
     } catch(e){ notFound('Gagal memuat reels'); }
+    return;
+  }
+
+  // /hashtag/:tag
+  const hashtagMatch = path.match(/^\/hashtag\/(.+)$/);
+  if(hashtagMatch){
+    const tag = decodeURIComponent(hashtagMatch[1]);
+    document.title = `#${tag} - Altavy`;
+    try {
+      const [posts, reels] = await Promise.all([
+        supaGet('Posts_Alvaty', `caption=ilike.*%23${tag}*`, '30'),
+        supaGet('Reels_Alvaty', `caption=ilike.*%23${tag}*`, '20')
+      ]);
+      const total = posts.length + reels.length;
+      content.innerHTML = `
+        <div style="text-align:center;padding:2rem 1rem;border-bottom:1px solid var(--border);margin-bottom:1rem;">
+          <div style="font-size:2rem;margin-bottom:0.5rem;"><i class="fa fa-hashtag" style="color:#3b82f6;"></i></div>
+          <div style="font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;color:#3b82f6;">#${tag}</div>
+          <div style="color:var(--text2);margin-top:0.3rem;">${total} konten</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;">
+          ${posts.map(p=>`<a href="/post/${p.id_post}" style="aspect-ratio:1;display:block;background:var(--bg3);overflow:hidden;position:relative;">
+            ${p.media_url?`<img src="${p.media_url}" style="width:100%;height:100%;object-fit:cover;">`:'<div style="width:100%;height:100%;background:var(--bg3);"></div>'}
+          </a>`).join('')}
+          ${reels.map(r=>`<a href="/reel/${r.id_reel}" style="aspect-ratio:1;display:block;background:var(--bg3);overflow:hidden;position:relative;">
+            <video src="${r.video_url}" style="width:100%;height:100%;object-fit:cover;" muted></video>
+            <div style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border-radius:4px;padding:2px 5px;font-size:0.7rem;"><i class="fa fa-film"></i></div>
+          </a>`).join('')}
+        </div>
+        ${total===0?'<div style="text-align:center;padding:3rem;color:var(--text2);">Belum ada konten dengan hashtag ini</div>':''}
+        ${CTA}`;
+    } catch(e){ notFound('Gagal memuat hashtag'); }
     return;
   }
 

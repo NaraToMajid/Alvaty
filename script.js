@@ -2147,43 +2147,12 @@ function closeImageViewer() {
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImageViewer(); });
 
-// ==================== OPEN POLL FROM SETTINGS ==================== 
-function openCreatePoll() {
-function getAchievements(posts, followers, reels) {
-  const list = [];
-  if (posts.length >= 1) list.push({ icon: '📸', label: 'Penulis', earned: true });
-  if (posts.length >= 10) list.push({ icon: '🔥', label: 'Aktif', earned: true });
-  else list.push({ icon: '🔥', label: 'Aktif', earned: false });
-  if (followers.length >= 10) list.push({ icon: '⭐', label: 'Populer', earned: true });
-  else list.push({ icon: '⭐', label: 'Populer', earned: false });
-  if (reels.length >= 1) list.push({ icon: '🎬', label: 'Kreator', earned: reels.length >= 1 });
-  if (followers.length >= 50) list.push({ icon: '👑', label: 'Influencer', earned: true });
-  else list.push({ icon: '👑', label: 'Influencer', earned: false });
-  return list;
-}
-
-// Override renderProfileHTML to add achievements
-const _origRenderProfileHTML = renderProfileHTML;
-function renderProfileHTML(user, posts, reels, followers, following, saved, isOwn) {
-  const base = _origRenderProfileHTML(user, posts, reels, followers, following, saved, isOwn);
-  const achievements = getAchievements(posts, followers, reels);
-  const achieveHtml = `<div style="padding:0.3rem 0 0;">
-    <div style="font-size:0.75rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:0.5rem 1rem 0.3rem;">Pencapaian</div>
-    <div class="achievements-row">
-      ${achievements.map(a => `<div class="achievement-badge" title="${a.label}">
-        <div class="achievement-icon ${a.earned ? 'earned' : ''}">${a.icon}</div>
-        <div class="achievement-label">${a.label}</div>
-      </div>`).join('')}
-    </div>
-  </div>`;
-  // Insert achievements before the profile-tabs div
-  return base.replace('<div class="profile-tabs"', achieveHtml + '<div class="profile-tabs"');
-}
-
-// ==================== OPEN POLL FROM SETTINGS ==================== 
+// ==================== OPEN POLL FROM SETTINGS ====================
 function openCreatePoll() {
   document.getElementById('poll-question').value = '';
-  document.querySelectorAll('.poll-opt').forEach((el, i) => { el.value = ''; });
+  document.querySelectorAll('.poll-opt').forEach((el, i) => { 
+    el.value = ''; 
+  });
   openModal('modal-create-poll');
 }
 
@@ -2196,8 +2165,10 @@ function showPage(name){
   const target = document.getElementById('page-' + name);
   if(target){
     target.classList.add('active');
+  }
+}
 
-  function doLogin(){
+function doLogin(){
   console.log("Login dijalankan");
 }
 
@@ -2207,5 +2178,4 @@ function doRegister(){
 
 function doLogout(){
   console.log("Logout");
-  }
 }

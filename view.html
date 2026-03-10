@@ -1,1 +1,200 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Altavy</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--accent:#22c55e;--accent2:#16a34a;--accent-glow:rgba(34,197,94,0.15);--text:#f5f5f5;--text2:#a0a0a0;--text3:#666;--border:rgba(255,255,255,0.08);--radius:16px;--radius-sm:10px;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;}
+.view-header{width:100%;max-width:600px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;gap:0.8rem;position:sticky;top:0;z-index:10;}
+.view-logo{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:var(--accent);flex:1;}
+.btn-open-app{background:var(--accent);color:#fff;border:none;padding:0.5rem 1.2rem;border-radius:50px;font-family:'Outfit',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:0.4rem;}
+.view-content{width:100%;max-width:600px;padding:1rem;}
+.view-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1rem;}
+.post-header{display:flex;align-items:center;padding:1rem;gap:0.8rem;}
+.post-avatar{width:42px;height:42px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;border:2px solid var(--accent);}
+.post-username{font-weight:600;font-size:1rem;}
+.post-time{font-size:0.75rem;color:var(--text2);}
+.post-media img,.post-media video{width:100%;max-height:500px;object-fit:cover;display:block;}
+.post-actions{padding:0.8rem 1rem;display:flex;gap:1.2rem;border-top:1px solid var(--border);}
+.action-item{display:flex;align-items:center;gap:0.4rem;color:var(--text2);font-size:0.9rem;}
+.post-caption{padding:0 1rem 1rem;font-size:0.95rem;line-height:1.6;}
+.loading{text-align:center;padding:4rem 1rem;color:var(--text2);}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 1rem;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.not-found{text-align:center;padding:4rem 1rem;color:var(--text2);}
+.not-found i{font-size:3rem;display:block;margin-bottom:1rem;color:var(--text3);}
+.profile-view{padding:1.5rem 1rem;}
+.profile-top{display:flex;align-items:center;gap:1.2rem;margin-bottom:1rem;}
+.profile-pic{width:80px;height:80px;border-radius:50%;border:3px solid var(--accent);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;overflow:hidden;}
+.profile-stats{display:flex;gap:2rem;}
+.stat-item{text-align:center;}
+.stat-num{font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:700;}
+.stat-label{font-size:0.75rem;color:var(--text2);}
+.profile-username{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;}
+.profile-bio{font-size:0.9rem;color:var(--text2);margin-top:0.3rem;line-height:1.6;}
+.cta-banner{background:linear-gradient(135deg,var(--accent2),var(--accent));border-radius:var(--radius);padding:1.5rem;text-align:center;margin-top:1.5rem;}
+.cta-banner h3{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;}
+.cta-banner p{font-size:0.875rem;opacity:0.85;margin-bottom:1rem;}
+.cta-banner a{background:#fff;color:var(--accent2);border:none;padding:0.65rem 1.5rem;border-radius:50px;font-family:'Outfit',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;}
+</style>
+</head>
+<body>
+<div class="view-header">
+  <span class="view-logo">Altavy</span>
+  <a class="btn-open-app" href="/"><i class="fa fa-home"></i> Buka App</a>
+</div>
+<div class="view-content" id="view-content">
+  <div class="loading"><div class="spinner"></div><p>Memuat konten...</p></div>
+</div>
 
+<script>
+const SUPABASE_URL = 'https://mqonelsoqyvrasrzrzfl.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xb25lbHNvcXl2cmFzcnpyemZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5NjEzOTQsImV4cCI6MjA4MTUzNzM5NH0.exHvN0BA3P71DcZbavZ0DMk8pUEpWQ6VCuH672wEdJ4';
+
+async function supaGet(table, filters='', limit='1'){
+  let url = `${SUPABASE_URL}/rest/v1/${table}?${filters}&limit=${limit}&order=created_at.asc`;
+  const res = await fetch(url, {headers:{'apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`}});
+  if(!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+function timeAgo(d){
+  const diff=(Date.now()-new Date(d))/1000;
+  if(diff<60) return 'Baru saja';
+  if(diff<3600) return Math.floor(diff/60)+'m';
+  if(diff<86400) return Math.floor(diff/3600)+'j';
+  return Math.floor(diff/86400)+'h';
+}
+
+function avatarHtml(u, size=42){
+  if(u && u.foto_profil_url) return `<img src="${u.foto_profil_url}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;">`;
+  const colors=['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899'];
+  const color=colors[((u&&u.username)||'A').charCodeAt(0)%colors.length];
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:${size*0.4}px;">${((u&&u.username)||'?')[0].toUpperCase()}</div>`;
+}
+
+const CTA = `<div class="cta-banner">
+  <h3>Bergabung dengan Altavy</h3>
+  <p>Buat akun gratis dan mulai berbagi momen kamu sekarang.</p>
+  <a href="/">Daftar Sekarang</a>
+</div>`;
+
+function notFound(msg='Konten tidak ditemukan'){
+  document.getElementById('view-content').innerHTML=`<div class="not-found"><i class="fa fa-search"></i><p>${msg}</p><a href="/" style="color:var(--accent);text-decoration:none;margin-top:1rem;display:inline-block;">← Kembali ke Altavy</a></div>${CTA}`;
+}
+
+async function loadView(){
+  const path = window.location.pathname;
+  const content = document.getElementById('view-content');
+
+  // /post/:id
+  const postMatch = path.match(/^\/post\/(.+)$/);
+  if(postMatch){
+    const postId = postMatch[1];
+    try {
+      const posts = await supaGet('Posts_Alvaty', `id_post=eq.${postId}`);
+      const post = posts[0];
+      if(!post){ notFound('Postingan tidak ditemukan'); return; }
+      const users = await supaGet('Users_Alvaty', `id_user=eq.${post.user_id}`);
+      const user = users[0]||{username:'?'};
+      // Meta tags for OG
+      document.title = `${user.username} di Altavy`;
+      const isVideo = post.media_type==='video';
+      const likes = await supaGet('Likes_Alvaty', `target_id=eq.${postId}&type_target=eq.post`, '1000');
+      const comments = await supaGet('Comments_Alvaty', `post_id=eq.${postId}`, '1000');
+      content.innerHTML = `
+        <div class="view-card">
+          <div class="post-header">
+            <div class="post-avatar">${avatarHtml(user,42)}</div>
+            <div>
+              <div class="post-username">${user.username}</div>
+              <div class="post-time">${timeAgo(post.created_at)}</div>
+            </div>
+          </div>
+          ${post.media_url ? `<div class="post-media">${isVideo
+            ? `<video src="${post.media_url}" controls playsinline></video>`
+            : `<img src="${post.media_url}" alt="post">`}</div>` : ''}
+          <div class="post-actions">
+            <div class="action-item"><i class="fa fa-heart" style="color:#ef4444;"></i> ${likes.length}</div>
+            <div class="action-item"><i class="fa fa-comment"></i> ${comments.length}</div>
+          </div>
+          ${post.caption ? `<div class="post-caption"><strong>${user.username}</strong> ${post.caption}</div>` : ''}
+        </div>
+        ${CTA}`;
+    } catch(e){ notFound('Gagal memuat postingan'); }
+    return;
+  }
+
+  // /profile/:username
+  const profileMatch = path.match(/^\/profile\/(.+)$/);
+  if(profileMatch){
+    const username = decodeURIComponent(profileMatch[1]);
+    try {
+      const users = await supaGet('Users_Alvaty', `username=eq.${encodeURIComponent(username)}`);
+      const user = users[0];
+      if(!user){ notFound(`Profil @${username} tidak ditemukan`); return; }
+      document.title = `${user.username} - Altavy`;
+      const posts = await supaGet('Posts_Alvaty', `user_id=eq.${user.id_user}`, '50');
+      const followers = await supaGet('Followers_Alvaty', `following_id=eq.${user.id_user}`, '1000');
+      const following = await supaGet('Followers_Alvaty', `follower_id=eq.${user.id_user}`, '1000');
+      content.innerHTML = `
+        <div class="view-card">
+          <div class="profile-view">
+            <div class="profile-top">
+              <div class="profile-pic">${user.foto_profil_url ? `<img src="${user.foto_profil_url}" style="width:100%;height:100%;object-fit:cover;">` : user.username[0].toUpperCase()}</div>
+              <div class="profile-stats">
+                <div class="stat-item"><div class="stat-num">${posts.length}</div><div class="stat-label">Postingan</div></div>
+                <div class="stat-item"><div class="stat-num">${followers.length}</div><div class="stat-label">Followers</div></div>
+                <div class="stat-item"><div class="stat-num">${following.length}</div><div class="stat-label">Following</div></div>
+              </div>
+            </div>
+            <div class="profile-username">${user.username}</div>
+            <div class="profile-bio">${user.bio||'Belum ada bio.'}</div>
+          </div>
+        </div>
+        ${CTA}`;
+    } catch(e){ notFound('Gagal memuat profil'); }
+    return;
+  }
+
+  // /reel/:id
+  const reelMatch = path.match(/^\/reel\/(.+)$/);
+  if(reelMatch){
+    const reelId = reelMatch[1];
+    try {
+      const reels = await supaGet('Reels_Alvaty', `id_reel=eq.${reelId}`);
+      const reel = reels[0];
+      if(!reel){ notFound('Reels tidak ditemukan'); return; }
+      const users = await supaGet('Users_Alvaty', `id_user=eq.${reel.user_id}`);
+      const user = users[0]||{username:'?'};
+      document.title = `${user.username} Reels - Altavy`;
+      content.innerHTML = `
+        <div class="view-card">
+          <div class="post-header">
+            <div class="post-avatar">${avatarHtml(user,42)}</div>
+            <div>
+              <div class="post-username">${user.username}</div>
+              <div class="post-time">${timeAgo(reel.created_at)}</div>
+            </div>
+          </div>
+          <div class="post-media"><video src="${reel.video_url}" controls playsinline style="width:100%;max-height:600px;object-fit:cover;"></video></div>
+          ${reel.caption ? `<div class="post-caption">${reel.caption}</div>` : ''}
+        </div>
+        ${CTA}`;
+    } catch(e){ notFound('Gagal memuat reels'); }
+    return;
+  }
+
+  // Fallback redirect to main app
+  window.location.href = '/';
+}
+
+loadView();
+</script>
+</body>
+</html>

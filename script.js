@@ -2186,3 +2186,15 @@ function openCreatePoll() {
   document.querySelectorAll('.poll-opt').forEach((el, i) => { el.value = ''; });
   openModal('modal-create-poll');
 }
+
+// fungsi pindah halaman
+function showPage(name){
+  document.querySelectorAll('.page').forEach(function(page){
+    page.classList.remove('active');
+  });
+
+  const target = document.getElementById('page-' + name);
+  if(target){
+    target.classList.add('active');
+  }
+}

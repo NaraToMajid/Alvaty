@@ -9,13 +9,6 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<script>
-function showPage(name){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  var el = document.getElementById('page-'+name);
-  if(el) el.classList.add('active');
-}
-</script>
 <div id="app">
 
 <!-- LANDING -->
@@ -121,15 +114,6 @@ function showPage(name){
       <i class="fa fa-bell"></i> Notifikasi
       <span class="sidebar-badge" id="sidebar-notif-badge" style="display:none">0</span>
     </button>
-    <button class="sidebar-nav-item" id="sidebar-nav-notes" onclick="switchTab('notes',this)">
-      <i class="fa fa-sticky-note"></i> Catatan
-    </button>
-    <button class="sidebar-nav-item" id="sidebar-nav-ai" onclick="switchTab('ai',this)">
-      <i class="fa fa-robot"></i> AI Altavy
-    </button>
-    <button class="sidebar-nav-item" id="sidebar-nav-explore" onclick="switchTab('explore',this)">
-      <i class="fa fa-compass"></i> Explore
-    </button>
     <button class="sidebar-nav-item" id="sidebar-nav-profile" onclick="switchTab('profile',this)">
       <i class="fa fa-user"></i> Profil
     </button>
@@ -138,9 +122,6 @@ function showPage(name){
     </button>
     <button class="sidebar-create-btn" style="margin-top:0.5rem;background:var(--bg3);color:var(--text);border:1.5px solid var(--border);" onclick="openCreateReel()">
       <i class="fa fa-video"></i> Upload Reel
-    </button>
-    <button class="sidebar-create-btn" style="margin-top:0.5rem;background:var(--bg3);color:var(--text);border:1.5px solid var(--border);" onclick="openCreatePoll()">
-      <i class="fa fa-poll"></i> Buat Poll
     </button>
     <div style="flex:1;"></div>
     <button class="sidebar-settings-btn" onclick="openSettings()">
@@ -190,61 +171,6 @@ function showPage(name){
         <div class="notif-list" id="notif-list"></div>
       </div>
 
-      <!-- NOTES TAB -->
-      <div id="tab-notes" class="tab-panel">
-        <div class="notes-header">
-          <div class="notes-title-bar">
-            <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;">📒 Catatan Saya</span>
-            <button class="btn-new-note" onclick="openNewNote()"><i class="fa fa-plus"></i> Baru</button>
-          </div>
-          <div class="notes-search-wrap">
-            <i class="fa fa-search"></i>
-            <input type="text" id="notes-search-input" placeholder="Cari catatan..." oninput="filterNotes(this.value)">
-          </div>
-        </div>
-        <div id="notes-list" class="notes-list"></div>
-      </div>
-
-      <!-- AI TAB -->
-      <div id="tab-ai" class="tab-panel ai-tab">
-        <div class="ai-header">
-          <div class="ai-avatar-wrap"><i class="fa fa-robot"></i></div>
-          <div>
-            <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;">AI Altavy</div>
-            <div style="font-size:0.75rem;color:var(--accent);">● Online — Siap membantu</div>
-          </div>
-          <button onclick="clearAIChat()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:0.8rem;padding:0.4rem;"><i class="fa fa-trash"></i></button>
-        </div>
-        <div id="ai-messages" class="ai-messages">
-          <div class="ai-msg ai">
-            <div class="ai-bubble">Halo! Saya AI dari <strong>Altavy</strong> 👋 Saya siap membantu kamu seputar platform ini — dari tips konten, fitur, hingga saran sosial media. Mau tanya apa?</div>
-          </div>
-        </div>
-        <div class="ai-input-row">
-          <input type="text" id="ai-input" placeholder="Tanya sesuatu ke AI Altavy..." onkeydown="if(event.key==='Enter')sendAIMessage()">
-          <button onclick="sendAIMessage()" class="ai-send-btn"><i class="fa fa-paper-plane"></i></button>
-        </div>
-        <div class="ai-suggestions">
-          <button onclick="askAI('Apa saja fitur utama Altavy?')">Fitur Altavy</button>
-          <button onclick="askAI('Berikan tips membuat konten viral di Altavy')">Tips Konten</button>
-          <button onclick="askAI('Cara meningkatkan followers di Altavy?')">Tambah Followers</button>
-          <button onclick="askAI('Apa itu Reels di Altavy dan cara membuatnya?')">Cara Reels</button>
-        </div>
-      </div>
-
-      <!-- EXPLORE TAB -->
-      <div id="tab-explore" class="tab-panel">
-        <div class="explore-header">
-          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;padding:1rem 1rem 0.5rem;">🔥 Explore</div>
-          <div class="explore-categories">
-            <button class="explore-cat active" onclick="switchExplore('trending',this)">Trending</button>
-            <button class="explore-cat" onclick="switchExplore('recent',this)">Terbaru</button>
-            <button class="explore-cat" onclick="switchExplore('popular',this)">Populer</button>
-          </div>
-        </div>
-        <div id="explore-grid" class="explore-grid"></div>
-      </div>
-
       <!-- PROFILE TAB -->
       <div id="tab-profile" class="tab-panel">
         <div id="my-profile-content"></div>
@@ -256,19 +182,24 @@ function showPage(name){
       <div class="nav-item active" onclick="switchTab('home',this)" id="nav-home">
         <i class="fa fa-house nav-icon"></i><span class="nav-label">Home</span>
       </div>
-      <div class="nav-item" onclick="switchTab('explore',this)" id="nav-explore">
-        <i class="fa fa-compass nav-icon"></i><span class="nav-label">Explore</span>
+      <div class="nav-item" onclick="switchTab('reels',this)" id="nav-reels">
+        <i class="fa fa-film nav-icon"></i><span class="nav-label">Reels</span>
       </div>
-      <div class="nav-item nav-center-item" onclick="openCreatePost()" id="nav-create">
-        <div class="nav-create-pill"><i class="fa fa-plus"></i></div>
+      <div class="nav-item" onclick="switchTab('chat',this)" id="nav-chat">
+        <i class="fa fa-comment-dots nav-icon"></i><span class="nav-label">Chat</span>
+        <div class="nav-badge" id="chat-badge" style="display:none">0</div>
       </div>
-      <div class="nav-item" onclick="switchTab('ai',this)" id="nav-ai">
-        <i class="fa fa-robot nav-icon"></i><span class="nav-label">AI</span>
+      <div class="nav-item" onclick="switchTab('notif',this)" id="nav-notif">
+        <i class="fa fa-bell nav-icon"></i><span class="nav-label">Notif</span>
+        <div class="nav-badge" id="notif-badge" style="display:none">0</div>
       </div>
       <div class="nav-item" onclick="switchTab('profile',this)" id="nav-profile">
         <i class="fa fa-user nav-icon"></i><span class="nav-label">Profil</span>
       </div>
     </nav>
+
+    <!-- MOBILE FAB -->
+    <button class="fab" id="fab-btn" onclick="openCreatePost()"><i class="fa fa-plus"></i></button>
   </div>
 </div>
 
@@ -604,66 +535,6 @@ function showPage(name){
     </div>
     <div id="blocked-list-wrap"></div>
   </div>
-</div>
-
-<!-- NOTE EDITOR MODAL -->
-<div class="modal-overlay" id="modal-note-editor">
-  <div class="modal-sheet modal-note-sheet">
-    <div class="modal-header">
-      <span class="modal-title" id="note-modal-title"><i class="fa fa-sticky-note"></i> Catatan Baru</span>
-      <div style="display:flex;gap:0.4rem;">
-        <button onclick="saveNote()" style="background:var(--accent);color:#fff;border:none;padding:0.4rem 1rem;border-radius:50px;font-family:'Outfit',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;">Simpan</button>
-        <button class="modal-close" onclick="closeModal('modal-note-editor')"><i class="fa fa-times"></i></button>
-      </div>
-    </div>
-    <input type="hidden" id="note-edit-id">
-    <input class="note-title-input" type="text" id="note-title" placeholder="Judul catatan...">
-    <div class="note-toolbar">
-      <button onclick="formatNote('bold')" title="Bold"><i class="fa fa-bold"></i></button>
-      <button onclick="formatNote('italic')" title="Italic"><i class="fa fa-italic"></i></button>
-      <button onclick="insertNoteChecklist()" title="Checklist"><i class="fa fa-check-square"></i></button>
-      <select id="note-color-picker" onchange="setNoteColor(this.value)" title="Warna">
-        <option value="">🎨 Warna</option>
-        <option value="yellow">🟡 Kuning</option>
-        <option value="green">🟢 Hijau</option>
-        <option value="blue">🔵 Biru</option>
-        <option value="pink">🩷 Pink</option>
-        <option value="purple">🟣 Ungu</option>
-      </select>
-    </div>
-    <textarea id="note-body" class="note-body-input" placeholder="Tulis catatan kamu di sini...&#10;&#10;Tips: Ketik '[] ' untuk membuat checklist"></textarea>
-    <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;">
-      <i class="fa fa-tag" style="color:var(--text3);font-size:0.85rem;"></i>
-      <input class="form-input" type="text" id="note-tags" placeholder="Tag: #kerja #ide #penting..." style="padding:0.4rem 0.7rem;font-size:0.82rem;">
-    </div>
-  </div>
-</div>
-
-<!-- POLL MODAL -->
-<div class="modal-overlay" id="modal-create-poll">
-  <div class="modal-sheet">
-    <div class="modal-header">
-      <span class="modal-title"><i class="fa fa-poll"></i> Buat Poll</span>
-      <button class="modal-close" onclick="closeModal('modal-create-poll')"><i class="fa fa-times"></i></button>
-    </div>
-    <div class="form-field">
-      <label>Pertanyaan</label>
-      <input class="form-input" type="text" id="poll-question" placeholder="Apa pertanyaanmu?">
-    </div>
-    <div id="poll-options-wrap">
-      <div class="form-field"><label>Pilihan 1</label><input class="form-input poll-opt" type="text" placeholder="Opsi A"></div>
-      <div class="form-field"><label>Pilihan 2</label><input class="form-input poll-opt" type="text" placeholder="Opsi B"></div>
-    </div>
-    <button onclick="addPollOption()" style="background:none;border:1.5px dashed var(--border);color:var(--text2);width:100%;padding:0.6rem;border-radius:var(--radius-sm);cursor:pointer;font-family:'Outfit',sans-serif;margin-bottom:1rem;"><i class="fa fa-plus"></i> Tambah Opsi</button>
-    <button class="btn-primary" onclick="submitPoll()">Buat Poll</button>
-  </div>
-</div>
-
-<!-- IMAGE VIEWER -->
-<div id="image-viewer" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:3000;align-items:center;justify-content:center;flex-direction:column;">
-  <button onclick="closeImageViewer()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:#fff;font-size:1.5rem;cursor:pointer;z-index:1;"><i class="fa fa-times"></i></button>
-  <img id="image-viewer-img" style="max-width:95vw;max-height:90vh;object-fit:contain;border-radius:8px;">
-  <div id="image-viewer-caption" style="color:#fff;font-size:0.85rem;margin-top:0.7rem;max-width:600px;text-align:center;padding:0 1rem;opacity:0.8;"></div>
 </div>
 
 <!-- Toast -->

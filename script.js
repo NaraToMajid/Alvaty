@@ -278,7 +278,8 @@ function switchTab(tab, el){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.sidebar-nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
+  const panel = document.getElementById('tab-'+tab);
+  if(panel) panel.classList.add('active');
   if(el) el.classList.add('active');
   const sideItem = document.getElementById('sidebar-nav-'+tab);
   if(sideItem) sideItem.classList.add('active');
@@ -290,7 +291,9 @@ function switchTab(tab, el){
   if(tab==='chat') loadChats();
   if(tab==='notif'){ loadNotifications(); markNotifsRead(); }
   if(tab==='profile') renderMyProfile();
-  const routes = {home:'/',reels:'/reels',chat:'/chat',notif:'/notifications',profile:'/profile'};
+  if(tab==='notes') loadNotes();
+  if(tab==='explore') loadExplore('trending');
+  const routes = {home:'/',reels:'/reels',chat:'/chat',notif:'/notifications',profile:'/profile',notes:'/notes',ai:'/ai',explore:'/explore'};
   pushRoute(routes[tab]||'/');
 }
 
@@ -1832,4 +1835,354 @@ async function adminUnban(banId){
     showToast('Ban berhasil dicabut','success');
     loadAdminDashboard();
   } catch(e){ showToast('Gagal','error'); }
+}
+
+// ==================== AI ALTAVY ====================
+const AI_SYSTEM_PROMPT = `Kamu adalah AI asisten dari platform media sosial bernama Altavy. Kamu tahu segalanya tentang Altavy secara mendalam.
+
+TENTANG ALTAVY:
+- Altavy adalah platform media sosial modern berbasis web yang dibuat untuk berbagi momen, berinteraksi, dan terhubung dengan orang lain.
+- Fitur utama: Feed (beranda), Reels (video pendek), Stories (hilang 24 jam), Chat langsung antar pengguna, Notifikasi real-time, Profil dengan followers/following, Sistem like & komentar, Simpan postingan (bookmark), Hashtag & mention, Pencarian pengguna dan konten, Catatan Pribadi (Notes), AI Asisten (kamu!), Explore untuk temukan konten baru.
+- Dibuat dengan HTML/CSS/JS murni + Supabase sebagai backend database.
+- Platform gratis, tanpa iklan, bisa diakses dari browser maupun mobile.
+- Pengguna bisa upload foto dan video, membuat Reels, menambah Story, chat real-time, follow pengguna lain, melihat notifikasi, dan masih banyak lagi.
+- Ada sistem laporan konten, blokir pengguna, dan admin dashboard.
+- Tema bisa diganti antara Dark dan Light mode.
+- Sistem badge & verifikasi untuk pengguna aktif.
+- Fitur Notes/Catatan: pengguna bisa membuat catatan pribadi dengan warna, tag, dan format teks.
+- Fitur Explore: temukan konten trending, terbaru, dan populer dari seluruh pengguna.
+- Fitur Poll: bisa membuat jajak pendapat di postingan.
+
+KEPRIBADIANMU:
+- Ramah, antusias, dan membantu.
+- Selalu memberikan saran yang relevan dan praktis.
+- Bicara dalam Bahasa Indonesia yang natural dan mudah dipahami.
+- Berikan contoh konkret dan tips yang bisa langsung diterapkan.
+- Jika ada pertanyaan teknis, bantu step by step.
+- Kamu adalah teman sekaligus asisten terbaik pengguna Altavy.
+
+Format jawaban: Gunakan teks biasa tanpa markdown bold (**) atau tanda bintang. Gunakan angka atau poin biasa jika perlu daftar.`;
+
+let aiHistory = [];
+
+async function sendAIMessage() {
+  const input = document.getElementById('ai-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  askAI(text);
+}
+
+async function askAI(text) {
+  appendAIMsg(text, 'user');
+  aiHistory.push({ role: 'user', content: text });
+
+  // Show typing indicator
+  const typingId = 'ai-typing-' + Date.now();
+  const messagesEl = document.getElementById('ai-messages');
+  if (messagesEl) {
+    const typingEl = document.createElement('div');
+    typingEl.className = 'ai-msg ai ai-typing';
+    typingEl.id = typingId;
+    typingEl.innerHTML = `<div class="ai-bubble"><div class="ai-typing-dot"></div><div class="ai-typing-dot"></div><div class="ai-typing-dot"></div></div>`;
+    messagesEl.appendChild(typingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  try {
+    const encoded = encodeURIComponent(text);
+    const systemEncoded = encodeURIComponent(AI_SYSTEM_PROMPT);
+    const res = await fetch(`https://api.siputzx.my.id/api/ai/gemini?text=${encoded}&cookie=cookie&promptSystem=${systemEncoded}`);
+    const data = await res.json();
+    const reply = data?.data?.response || 'Maaf, saya tidak bisa menjawab saat ini. Coba lagi ya!';
+    const cleaned = cleanAIResponse(reply);
+
+    // Remove typing indicator
+    document.getElementById(typingId)?.remove();
+    appendAIMsg(cleaned, 'ai');
+    aiHistory.push({ role: 'assistant', content: cleaned });
+  } catch (e) {
+    document.getElementById(typingId)?.remove();
+    appendAIMsg('Waduh, koneksi AI sedang bermasalah nih. Coba lagi beberapa saat ya!', 'ai');
+  }
+}
+
+function cleanAIResponse(text) {
+  // Remove markdown bold/italic markers
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/_(.*?)_/g, '$1')
+    .replace(/`(.*?)`/g, '$1')
+    .replace(/#{1,6}\s/g, '')
+    .trim();
+}
+
+function appendAIMsg(text, role) {
+  const messagesEl = document.getElementById('ai-messages');
+  if (!messagesEl) return;
+  const div = document.createElement('div');
+  div.className = `ai-msg ${role}`;
+  // Convert newlines to <br> for display
+  const formatted = text.replace(/\n/g, '<br>');
+  div.innerHTML = `<div class="ai-bubble">${formatted}</div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function clearAIChat() {
+  aiHistory = [];
+  const messagesEl = document.getElementById('ai-messages');
+  if (messagesEl) {
+    messagesEl.innerHTML = `<div class="ai-msg ai"><div class="ai-bubble">Chat direset! Ada yang bisa saya bantu? 😊</div></div>`;
+  }
+}
+
+// ==================== NOTES SYSTEM ====================
+let notes = JSON.parse(localStorage.getItem('altavy_notes') || '[]');
+let editingNoteId = null;
+
+function saveNotesToStorage() {
+  localStorage.setItem('altavy_notes', JSON.stringify(notes));
+}
+
+function loadNotes() {
+  renderNotesList(notes);
+}
+
+function renderNotesList(list) {
+  const el = document.getElementById('notes-list');
+  if (!el) return;
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fa fa-sticky-note"></i><p>Belum ada catatan.<br>Ketuk + Baru untuk membuat catatan pertama!</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(n => `
+    <div class="note-card ${n.color || ''}" onclick="openEditNote('${n.id}')">
+      <div class="note-card-title">${n.title || 'Tanpa Judul'}</div>
+      <div class="note-card-body">${n.body || '<span style="opacity:0.4;font-style:italic;">Kosong...</span>'}</div>
+      <div class="note-card-footer">
+        <div class="note-card-time">${timeAgo(n.updatedAt || n.createdAt)}</div>
+        <button class="note-card-del" onclick="event.stopPropagation();deleteNote('${n.id}')"><i class="fa fa-trash"></i></button>
+      </div>
+    </div>`).join('');
+}
+
+function filterNotes(q) {
+  if (!q.trim()) { renderNotesList(notes); return; }
+  const filtered = notes.filter(n =>
+    (n.title || '').toLowerCase().includes(q.toLowerCase()) ||
+    (n.body || '').toLowerCase().includes(q.toLowerCase()) ||
+    (n.tags || '').toLowerCase().includes(q.toLowerCase())
+  );
+  renderNotesList(filtered);
+}
+
+function openNewNote() {
+  editingNoteId = null;
+  document.getElementById('note-modal-title').innerHTML = '<i class="fa fa-sticky-note"></i> Catatan Baru';
+  document.getElementById('note-title').value = '';
+  document.getElementById('note-body').value = '';
+  document.getElementById('note-tags').value = '';
+  document.getElementById('note-color-picker').value = '';
+  document.getElementById('note-edit-id').value = '';
+  openModal('modal-note-editor');
+}
+
+function openEditNote(id) {
+  const note = notes.find(n => n.id === id);
+  if (!note) return;
+  editingNoteId = id;
+  document.getElementById('note-modal-title').innerHTML = '<i class="fa fa-edit"></i> Edit Catatan';
+  document.getElementById('note-title').value = note.title || '';
+  document.getElementById('note-body').value = note.body || '';
+  document.getElementById('note-tags').value = note.tags || '';
+  document.getElementById('note-color-picker').value = note.color || '';
+  document.getElementById('note-edit-id').value = id;
+  openModal('modal-note-editor');
+}
+
+function saveNote() {
+  const title = document.getElementById('note-title').value.trim();
+  const body = document.getElementById('note-body').value.trim();
+  const tags = document.getElementById('note-tags').value.trim();
+  const color = document.getElementById('note-color-picker').value;
+  const id = editingNoteId;
+  const now = new Date().toISOString();
+
+  if (!title && !body) { showToast('Tulis sesuatu dulu!', 'error'); return; }
+
+  if (id) {
+    const idx = notes.findIndex(n => n.id === id);
+    if (idx !== -1) {
+      notes[idx] = { ...notes[idx], title, body, tags, color, updatedAt: now };
+    }
+  } else {
+    notes.unshift({ id: 'note_' + Date.now(), title, body, tags, color, createdAt: now, updatedAt: now });
+  }
+
+  saveNotesToStorage();
+  loadNotes();
+  closeModal('modal-note-editor');
+  showToast(id ? 'Catatan diperbarui' : 'Catatan disimpan', 'success');
+}
+
+function deleteNote(id) {
+  if (!confirm('Hapus catatan ini?')) return;
+  notes = notes.filter(n => n.id !== id);
+  saveNotesToStorage();
+  loadNotes();
+  showToast('Catatan dihapus');
+}
+
+function formatNote(cmd) {
+  const ta = document.getElementById('note-body');
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const selected = ta.value.substring(start, end);
+  let wrapped = '';
+  if (cmd === 'bold') wrapped = `**${selected}**`;
+  if (cmd === 'italic') wrapped = `_${selected}_`;
+  ta.value = ta.value.substring(0, start) + wrapped + ta.value.substring(end);
+  ta.focus();
+}
+
+function insertNoteChecklist() {
+  const ta = document.getElementById('note-body');
+  const pos = ta.selectionStart;
+  const insertion = '\n☐ ';
+  ta.value = ta.value.substring(0, pos) + insertion + ta.value.substring(pos);
+  ta.selectionStart = ta.selectionEnd = pos + insertion.length;
+  ta.focus();
+}
+
+function setNoteColor(color) {
+  // Visual preview handled by save
+}
+
+// ==================== EXPLORE ====================
+async function loadExplore(mode = 'trending') {
+  const grid = document.getElementById('explore-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="loading-wrap" style="grid-column:1/-1;"><div class="spinner"></div></div>';
+  try {
+    let posts = [];
+    if (mode === 'trending') {
+      // Get posts with most likes (approximate by recent)
+      posts = await SupabaseClient.select('Posts_Alvaty', '', 'created_at.desc', '30');
+    } else if (mode === 'recent') {
+      posts = await SupabaseClient.select('Posts_Alvaty', '', 'created_at.desc', '30');
+    } else if (mode === 'popular') {
+      posts = await SupabaseClient.select('Posts_Alvaty', '', 'created_at.asc', '30');
+    }
+    const filtered = posts.filter(p => p.media_url && !blockedUserIds.has(p.user_id));
+    if (!filtered.length) {
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i class="fa fa-compass"></i><p>Belum ada konten</p></div>';
+      return;
+    }
+    grid.innerHTML = filtered.map((p, i) => {
+      const isVideo = p.media_type === 'video';
+      return `<div class="explore-item" onclick="openPostDetail('${p.id_post}')">
+        ${isVideo
+          ? `<video src="${p.media_url}" muted style="width:100%;height:100%;object-fit:cover;"></video>`
+          : `<img src="${p.media_url}" loading="lazy" alt="post">`}
+        <div class="explore-item-overlay">
+          <div class="explore-item-stats">
+            <span><i class="fa fa-heart"></i></span>
+            ${isVideo ? '<span><i class="fa fa-film"></i></span>' : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i class="fa fa-exclamation"></i><p>Gagal memuat</p></div>';
+  }
+}
+
+function switchExplore(mode, el) {
+  document.querySelectorAll('.explore-cat').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  loadExplore(mode);
+}
+
+// ==================== POLL SYSTEM ====================
+function addPollOption() {
+  const wrap = document.getElementById('poll-options-wrap');
+  const count = wrap.querySelectorAll('.poll-opt').length + 1;
+  if (count > 4) { showToast('Maksimal 4 pilihan', 'error'); return; }
+  const div = document.createElement('div');
+  div.className = 'form-field';
+  div.innerHTML = `<label>Pilihan ${count}</label><input class="form-input poll-opt" type="text" placeholder="Opsi ${String.fromCharCode(64+count)}">`;
+  wrap.appendChild(div);
+}
+
+async function submitPoll() {
+  const q = document.getElementById('poll-question').value.trim();
+  const opts = [...document.querySelectorAll('.poll-opt')].map(i => i.value.trim()).filter(Boolean);
+  if (!q) { showToast('Tulis pertanyaan dulu', 'error'); return; }
+  if (opts.length < 2) { showToast('Minimal 2 pilihan', 'error'); return; }
+  // Save poll as a post with special caption format
+  const caption = `📊 POLL: ${q}\n${opts.map((o, i) => `[OPT${i}] ${o}`).join('\n')}`;
+  try {
+    await SupabaseClient.insert('Posts_Alvaty', { user_id: currentUser.id_user, caption, media_url: '', media_type: 'poll' });
+    closeModal('modal-create-poll');
+    showToast('Poll berhasil dibuat!', 'success');
+    loadFeed();
+  } catch (e) { showToast('Gagal buat poll', 'error'); }
+}
+
+// ==================== IMAGE VIEWER ====================
+function openImageViewer(src, caption) {
+  const viewer = document.getElementById('image-viewer');
+  if (!viewer) return;
+  document.getElementById('image-viewer-img').src = src;
+  document.getElementById('image-viewer-caption').textContent = caption || '';
+  viewer.style.display = 'flex';
+  viewer.onclick = (e) => { if (e.target === viewer) closeImageViewer(); };
+}
+function closeImageViewer() {
+  const viewer = document.getElementById('image-viewer');
+  if (viewer) viewer.style.display = 'none';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImageViewer(); });
+
+// ==================== OPEN POLL FROM SETTINGS ==================== 
+function openCreatePoll() {
+function getAchievements(posts, followers, reels) {
+  const list = [];
+  if (posts.length >= 1) list.push({ icon: '📸', label: 'Penulis', earned: true });
+  if (posts.length >= 10) list.push({ icon: '🔥', label: 'Aktif', earned: true });
+  else list.push({ icon: '🔥', label: 'Aktif', earned: false });
+  if (followers.length >= 10) list.push({ icon: '⭐', label: 'Populer', earned: true });
+  else list.push({ icon: '⭐', label: 'Populer', earned: false });
+  if (reels.length >= 1) list.push({ icon: '🎬', label: 'Kreator', earned: reels.length >= 1 });
+  if (followers.length >= 50) list.push({ icon: '👑', label: 'Influencer', earned: true });
+  else list.push({ icon: '👑', label: 'Influencer', earned: false });
+  return list;
+}
+
+// Override renderProfileHTML to add achievements
+const _origRenderProfileHTML = renderProfileHTML;
+function renderProfileHTML(user, posts, reels, followers, following, saved, isOwn) {
+  const base = _origRenderProfileHTML(user, posts, reels, followers, following, saved, isOwn);
+  const achievements = getAchievements(posts, followers, reels);
+  const achieveHtml = `<div style="padding:0.3rem 0 0;">
+    <div style="font-size:0.75rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:0.5rem 1rem 0.3rem;">Pencapaian</div>
+    <div class="achievements-row">
+      ${achievements.map(a => `<div class="achievement-badge" title="${a.label}">
+        <div class="achievement-icon ${a.earned ? 'earned' : ''}">${a.icon}</div>
+        <div class="achievement-label">${a.label}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+  // Insert achievements before the profile-tabs div
+  return base.replace('<div class="profile-tabs"', achieveHtml + '<div class="profile-tabs"');
+}
+
+// ==================== OPEN POLL FROM SETTINGS ==================== 
+function openCreatePoll() {
+  document.getElementById('poll-question').value = '';
+  document.querySelectorAll('.poll-opt').forEach((el, i) => { el.value = ''; });
+  openModal('modal-create-poll');
 }

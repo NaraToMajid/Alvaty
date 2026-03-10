@@ -2199,5 +2199,13 @@ function showPage(name){
 
   function doLogin(){
   console.log("Login dijalankan");
+}
+
+function doRegister(){
+  console.log("Register dijalankan");
+}
+
+function doLogout(){
+  console.log("Logout");
   }
 }

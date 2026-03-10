@@ -110,6 +110,9 @@
     <button class="sidebar-nav-item" id="sidebar-nav-reels" onclick="switchTab('reels',this)">
       <i class="fa fa-film"></i> Reels
     </button>
+    <button class="sidebar-nav-item" id="sidebar-nav-search" onclick="openSearchPage()">
+      <i class="fa fa-search"></i> Cari Pengguna
+    </button>
     <button class="sidebar-nav-item" id="sidebar-nav-chat" onclick="switchTab('chat',this)">
       <i class="fa fa-comment-dots"></i> Chat
       <span class="sidebar-badge" id="sidebar-chat-badge" style="display:none">0</span>
@@ -140,6 +143,7 @@
     <div class="app-header">
       <span class="header-logo">Altavy</span>
       <div class="header-actions">
+        <button class="icon-btn" onclick="openSearchPage()"><i class="fa fa-search"></i></button>
         <button class="icon-btn" onclick="openSettings()"><i class="fa fa-cog"></i></button>
       </div>
     </div>
@@ -453,6 +457,33 @@
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+
+<!-- SEARCH PAGE -->
+<div id="search-page">
+  <div class="search-header">
+    <button class="icon-btn" onclick="closeSearchPage()"><i class="fa fa-arrow-left"></i></button>
+    <div class="search-input-wrap">
+      <i class="fa fa-search"></i>
+      <input type="text" id="search-input" placeholder="Cari pengguna, tag, atau konten..." oninput="handleSearch(this.value)" autofocus>
+    </div>
+  </div>
+  <div class="search-body" id="search-body">
+    <div class="search-section-label">Trending Tag</div>
+    <div class="search-trending" id="search-trending">
+      <span class="search-trending-tag" onclick="searchByTag('photography')">#photography</span>
+      <span class="search-trending-tag" onclick="searchByTag('travel')">#travel</span>
+      <span class="search-trending-tag" onclick="searchByTag('food')">#food</span>
+      <span class="search-trending-tag" onclick="searchByTag('art')">#art</span>
+      <span class="search-trending-tag" onclick="searchByTag('music')">#music</span>
+      <span class="search-trending-tag" onclick="searchByTag('nature')">#nature</span>
+    </div>
+    <div class="search-section-label" style="margin-top:0.5rem;">Pengguna</div>
+    <div id="search-results-users"></div>
+    <div class="search-section-label" style="margin-top:0.5rem;" id="search-posts-label" style="display:none;">Postingan</div>
+    <div id="search-results-posts" class="search-post-grid"></div>
+  </div>
+</div>
 
 <script src="script.js"></script>
 </body>

@@ -3,6 +3,7 @@
     { "source": "/post/:id", "destination": "/view.html" },
     { "source": "/profile/:username", "destination": "/view.html" },
     { "source": "/reel/:id", "destination": "/view.html" },
+    { "source": "/hashtag/:tag", "destination": "/view.html" },
     { "source": "/chat/:id", "destination": "/view.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],

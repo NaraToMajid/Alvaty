@@ -1,5 +1,4 @@
 // ==================== SUPABASE CLIENT ====================
-// Keys loaded from window (injected by index.html from .env equivalent)
 const SUPABASE_URL = window.ENV_SUPABASE_URL || 'https://mqonelsoqyvrasrzrzfl.supabase.co';
 const SUPABASE_ANON = window.ENV_SUPABASE_ANON || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xb25lbHNvcXl2cmFzcnpyemZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5NjEzOTQsImV4cCI6MjA4MTUzNzM5NH0.exHvN0BA3P71DcZbavZ0DMk8pUEpWQ6VCuH672wEdJ4';
 
@@ -60,6 +59,8 @@ let storyIndex = 0;
 let storyTimer = null;
 let allChats = [];
 let chatPollingInterval = null;
+let onlineHeartbeatInterval = null;
+let blockedUserIds = new Set();
 
 // ==================== INIT ====================
 (async()=>{
@@ -73,7 +74,9 @@ let chatPollingInterval = null;
 function pushRoute(path){ history.pushState({path},'',path); }
 
 window.addEventListener('popstate', e=>{
-  if(document.getElementById('chat-room').classList.contains('active')) closeChatRoom();
+  if(document.getElementById('hashtag-page').classList.contains('active')) closeHashtagPage();
+  else if(document.getElementById('followers-page').classList.contains('active')) closeFollowersPage();
+  else if(document.getElementById('chat-room').classList.contains('active')) closeChatRoom();
   else if(document.getElementById('post-detail').classList.contains('active')) closePostDetail();
   else if(document.getElementById('user-profile').classList.contains('active')) closeUserProfile();
   else if(document.getElementById('settings-page').classList.contains('active')) closeSettings();
@@ -87,7 +90,20 @@ function showPage(name){
 }
 
 async function initApp(){
+  // Check ban status first
+  if(currentUser && !currentUser.is_admin){
+    const banActive = await checkBanStatus(currentUser.id_user);
+    if(banActive){
+      currentUser = null;
+      localStorage.removeItem('altavy_user');
+      showPage('landing');
+      showToast('Akun kamu sedang dibanned. Silakan hubungi admin.','error');
+      return;
+    }
+  }
   if(currentUser.is_admin){ showPage('admin'); loadAdminDashboard(); return; }
+  // Load blocked users
+  await loadBlockedUsers();
   showPage('main');
   pushRoute('/');
   loadFeed();
@@ -96,19 +112,84 @@ async function initApp(){
   loadChats();
   loadNotifications();
   renderMyProfile();
-  // Poll for new messages/notifs every 30s
   startPolling();
+  startOnlineHeartbeat();
 }
 
+async function checkBanStatus(userId){
+  try {
+    const bans = await SupabaseClient.select('Bans_Alvaty',`user_id=eq.${userId}&is_active=eq.true`,'created_at.desc','1');
+    if(!bans.length) return false;
+    const ban = bans[0];
+    if(ban.ban_until === null) return true; // permanent ban
+    if(new Date(ban.ban_until) > new Date()) return true;
+    // Expired ban — deactivate it
+    await SupabaseClient.update('Bans_Alvaty',{is_active:false},`id_ban=eq.${ban.id_ban}`);
+    return false;
+  } catch(e){ return false; }
+}
+
+async function loadBlockedUsers(){
+  if(!currentUser) return;
+  try {
+    const blocked = await SupabaseClient.select('Blocks_Alvaty',`blocker_id=eq.${currentUser.id_user}`,'created_at.desc','500');
+    blockedUserIds = new Set(blocked.map(b=>b.blocked_id));
+  } catch(e){}
+}
+
+// ==================== ONLINE STATUS ====================
+function startOnlineHeartbeat(){
+  if(!currentUser) return;
+  setUserOnline();
+  if(onlineHeartbeatInterval) clearInterval(onlineHeartbeatInterval);
+  onlineHeartbeatInterval = setInterval(()=>setUserOnline(), 30000);
+  window.addEventListener('beforeunload', ()=>setUserOffline());
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden) setUserOffline();
+    else setUserOnline();
+  });
+}
+
+async function setUserOnline(){
+  if(!currentUser?.id_user) return;
+  try {
+    const existing = await SupabaseClient.select('OnlineStatus_Alvaty',`user_id=eq.${currentUser.id_user}`,'created_at.desc','1');
+    const now = new Date().toISOString();
+    if(existing.length){
+      await SupabaseClient.update('OnlineStatus_Alvaty',{is_online:true,last_seen:now},`user_id=eq.${currentUser.id_user}`);
+    } else {
+      await SupabaseClient.insert('OnlineStatus_Alvaty',{user_id:currentUser.id_user,is_online:true,last_seen:now});
+    }
+  } catch(e){}
+}
+
+async function setUserOffline(){
+  if(!currentUser?.id_user) return;
+  try {
+    const now = new Date().toISOString();
+    await SupabaseClient.update('OnlineStatus_Alvaty',{is_online:false,last_seen:now},`user_id=eq.${currentUser.id_user}`);
+  } catch(e){}
+}
+
+async function getUserOnlineStatus(userId){
+  try {
+    const rows = await SupabaseClient.select('OnlineStatus_Alvaty',`user_id=eq.${userId}`,'created_at.desc','1');
+    if(!rows.length) return {online:false,lastSeen:null};
+    const r = rows[0];
+    // Consider online if last seen < 60s ago and is_online=true
+    const diff = (Date.now() - new Date(r.last_seen))/1000;
+    return {online: r.is_online && diff < 60, lastSeen: r.last_seen};
+  } catch(e){ return {online:false,lastSeen:null}; }
+}
+
+// ==================== POLLING ====================
 function startPolling(){
   if(chatPollingInterval) clearInterval(chatPollingInterval);
   chatPollingInterval = setInterval(async()=>{
     if(currentTab==='chat') loadChats();
     if(currentTab==='notif') loadNotifications();
-    // Update badge counts
     await updateBadges();
-    // Mark chat messages as read if chat room is open
-    if(currentChatUser) await markMessagesRead();
+    if(currentChatUser) { await loadMessages(); await markMessagesRead(); }
   }, 8000);
 }
 
@@ -121,7 +202,6 @@ async function updateBadges(){
     const count = unreadNotifs.length;
     if(badge){ badge.textContent=count; badge.style.display=count>0?'flex':'none'; }
     if(sideBadge){ sideBadge.textContent=count; sideBadge.style.display=count>0?'flex':'none'; }
-
     const msgs = await SupabaseClient.select('Messages_Alvaty',`receiver_id=eq.${currentUser.id_user}&read=eq.false`,'created_at.desc','100');
     const chatBadge = document.getElementById('chat-badge');
     const sideChat = document.getElementById('sidebar-chat-badge');
@@ -183,9 +263,12 @@ async function doRegister(){
   } catch(e){ err.textContent='Gagal daftar: '+e.message; err.classList.add('show'); }
 }
 
-function doLogout(){
+async function doLogout(){
+  await setUserOffline();
   currentUser=null;
   if(chatPollingInterval) clearInterval(chatPollingInterval);
+  if(onlineHeartbeatInterval) clearInterval(onlineHeartbeatInterval);
+  blockedUserIds = new Set();
   localStorage.removeItem('altavy_user');
   closeSettings(); showPage('landing');
 }
@@ -197,22 +280,16 @@ function switchTab(tab, el){
   document.querySelectorAll('.sidebar-nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   if(el) el.classList.add('active');
-  // Also mark sidebar item active
   const sideItem = document.getElementById('sidebar-nav-'+tab);
   if(sideItem) sideItem.classList.add('active');
   currentTab = tab;
-
-  // Desktop: FAB hidden, show create button in sidebar for home/reels
-  // Mobile FAB
   const fab = document.getElementById('fab-btn');
   if(fab) fab.style.display = (tab==='home'||tab==='reels') ? 'flex' : 'none';
-
   if(tab==='home') loadFeed();
   if(tab==='reels') loadReels();
   if(tab==='chat') loadChats();
   if(tab==='notif'){ loadNotifications(); markNotifsRead(); }
   if(tab==='profile') renderMyProfile();
-
   const routes = {home:'/',reels:'/reels',chat:'/chat',notif:'/notifications',profile:'/profile'};
   pushRoute(routes[tab]||'/');
 }
@@ -239,6 +316,170 @@ function showToast(msg, type=''){
   setTimeout(()=>t.className='toast',2500);
 }
 
+// ==================== HASHTAG & MENTION PARSER ====================
+function parseCaption(text){
+  if(!text) return '';
+  // Escape HTML first
+  let safe = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Parse hashtags: #word → clickable blue link
+  safe = safe.replace(/#([a-zA-Z0-9_]+)/g, (match, tag)=>
+    `<span class="hashtag" onclick="openHashtagPage('${tag}')">#${tag}</span>`
+  );
+  // Parse mentions: @word → clickable bold link
+  safe = safe.replace(/@([a-zA-Z0-9_]+)/g, (match, username)=>
+    `<span class="mention-link" onclick="openUserByUsername('${username}')">@${username}</span>`
+  );
+  return safe;
+}
+
+async function openUserByUsername(username){
+  try {
+    const users = await SupabaseClient.select('Users_Alvaty',`username=eq.${encodeURIComponent(username)}`,'created_at.asc','1');
+    if(users.length) openUserProfile(users[0].id_user, users[0].username);
+    else showToast('@'+username+' tidak ditemukan','error');
+  } catch(e){}
+}
+
+// ==================== HASHTAG PAGE ====================
+function openHashtagPage(tag){
+  pushRoute(`/hashtag/${tag}`);
+  document.getElementById('hashtag-page').classList.add('active');
+  document.getElementById('hashtag-title').textContent = '#'+tag;
+  loadHashtagContent(tag);
+}
+
+function closeHashtagPage(){
+  document.getElementById('hashtag-page').classList.remove('active');
+}
+
+async function loadHashtagContent(tag){
+  const list = document.getElementById('hashtag-list');
+  list.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  try {
+    const [posts, reels] = await Promise.all([
+      SupabaseClient.select('Posts_Alvaty',`caption=ilike.*%23${tag}*`,'created_at.desc','30'),
+      SupabaseClient.select('Reels_Alvaty',`caption=ilike.*%23${tag}*`,'created_at.desc','30')
+    ]);
+    const allContent = [
+      ...posts.map(p=>({...p, _type:'post'})),
+      ...reels.map(r=>({...r, _type:'reel', id_post:r.id_reel, media_url:r.video_url, media_type:'video'}))
+    ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    if(!allContent.length){
+      list.innerHTML=`<div class="empty-state"><i class="fa fa-hashtag"></i><p>Belum ada konten dengan #${tag}</p></div>`;
+      return;
+    }
+    list.innerHTML=`<div class="post-grid">${allContent.map(p=>`
+      <div class="post-thumb" onclick="${p._type==='post'?`openPostDetail('${p.id_post}')`:`openReelById('${p.id_reel||p.id_post}')`}">
+        ${p.media_type==='video'
+          ?`<video src="${p.media_url}" style="width:100%;height:100%;object-fit:cover;" muted></video><div class="video-badge"><i class="fa fa-${p._type==='reel'?'film':'video'}"></i></div>`
+          :`<img src="${p.media_url}" loading="lazy" alt="post">`}
+      </div>`).join('')}</div>`;
+  } catch(e){ list.innerHTML='<div class="empty-state"><i class="fa fa-exclamation"></i><p>Gagal memuat konten</p></div>'; }
+}
+
+// ==================== BLOCK SYSTEM ====================
+async function blockUser(userId, username){
+  if(!currentUser) return;
+  if(!confirm(`Blokir @${username}? Kamu dan pengguna ini tidak akan bisa saling melihat konten atau mengirim pesan.`)) return;
+  try {
+    const existing = await SupabaseClient.select('Blocks_Alvaty',`blocker_id=eq.${currentUser.id_user}&blocked_id=eq.${userId}`,'created_at.desc','1');
+    if(existing.length){ showToast('Pengguna sudah diblokir','error'); return; }
+    await SupabaseClient.insert('Blocks_Alvaty',{blocker_id:currentUser.id_user,blocked_id:userId});
+    blockedUserIds.add(userId);
+    closeUserProfile();
+    showToast(`@${username} telah diblokir`,'success');
+  } catch(e){ showToast('Gagal memblokir pengguna','error'); }
+}
+
+async function unblockUser(userId, username){
+  if(!currentUser) return;
+  try {
+    await SupabaseClient.delete('Blocks_Alvaty',`blocker_id=eq.${currentUser.id_user}&blocked_id=eq.${userId}`);
+    blockedUserIds.delete(userId);
+    showToast(`@${username} tidak diblokir lagi`,'success');
+  } catch(e){}
+}
+
+// ==================== REPORT SYSTEM ====================
+function openReportUser(userId, username){
+  document.getElementById('report-target-id').value = userId;
+  document.getElementById('report-target-type').value = 'user';
+  document.getElementById('report-target-label').textContent = `Laporkan @${username}`;
+  openModal('modal-report');
+}
+
+function openReportContent(contentId, contentType){
+  document.getElementById('report-target-id').value = contentId;
+  document.getElementById('report-target-type').value = contentType;
+  document.getElementById('report-target-label').textContent = `Laporkan ${contentType==='post'?'Postingan':'Reels'}`;
+  openModal('modal-report');
+}
+
+async function submitReport(){
+  const targetId = document.getElementById('report-target-id').value;
+  const targetType = document.getElementById('report-target-type').value;
+  const reason = document.getElementById('report-reason').value;
+  const notes = document.getElementById('report-notes').value.trim();
+  if(!reason){ showToast('Pilih alasan laporan','error'); return; }
+  try {
+    await SupabaseClient.insert('Reports_Alvaty',{
+      reporter_id: currentUser.id_user,
+      target_id: targetId,
+      target_type: targetType,
+      reason: reason,
+      notes: notes,
+      status: 'pending'
+    });
+    closeModal('modal-report');
+    document.getElementById('report-reason').value = '';
+    document.getElementById('report-notes').value = '';
+    showToast('Laporan berhasil dikirim. Tim kami akan meninjau.','success');
+  } catch(e){ showToast('Gagal mengirim laporan','error'); }
+}
+
+// ==================== FOLLOWERS / FOLLOWING LIST ====================
+function openFollowersList(userId, username, mode){
+  document.getElementById('followers-page-title').textContent = mode==='followers'?`Followers @${username}`:`Following @${username}`;
+  document.getElementById('followers-page').classList.add('active');
+  loadFollowersList(userId, mode);
+}
+
+function closeFollowersPage(){
+  document.getElementById('followers-page').classList.remove('active');
+}
+
+async function loadFollowersList(userId, mode){
+  const list = document.getElementById('followers-list-wrap');
+  list.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  try {
+    let rows, userIds;
+    if(mode==='followers'){
+      rows = await SupabaseClient.select('Followers_Alvaty',`following_id=eq.${userId}`,'created_at.desc','200');
+      userIds = rows.map(r=>r.follower_id);
+    } else {
+      rows = await SupabaseClient.select('Followers_Alvaty',`follower_id=eq.${userId}`,'created_at.desc','200');
+      userIds = rows.map(r=>r.following_id);
+    }
+    if(!userIds.length){
+      list.innerHTML=`<div class="empty-state"><i class="fa fa-users"></i><p>Belum ada ${mode==='followers'?'followers':'following'}</p></div>`;
+      return;
+    }
+    const users = [];
+    for(const uid of userIds){
+      const u = await SupabaseClient.select('Users_Alvaty',`id_user=eq.${uid}`,'created_at.asc','1');
+      if(u[0]) users.push(u[0]);
+    }
+    list.innerHTML = users.map(u=>`
+      <div class="chat-item" onclick="closeFollowersPage();openUserProfile('${u.id_user}','${u.username}')">
+        <div class="chat-avatar">${avatarEl(u,46)}</div>
+        <div class="chat-info">
+          <div class="chat-name">${u.username}</div>
+          <div class="chat-preview">${u.bio||'Belum ada bio'}</div>
+        </div>
+      </div>`).join('');
+  } catch(e){ list.innerHTML='<div class="empty-state"><i class="fa fa-exclamation"></i><p>Gagal memuat</p></div>'; }
+}
+
 // ==================== FEED ====================
 async function loadFeed(){
   const fl = document.getElementById('feed-list');
@@ -251,11 +492,13 @@ async function loadFeed(){
       const u = await SupabaseClient.select('Users_Alvaty',`id_user=eq.${uid}`,'created_at.asc','1');
       if(u[0]) users[uid]=u[0];
     }
-    if(!posts.length){ fl.innerHTML='<div class="empty-state"><i class="fa fa-images"></i><p>Belum ada postingan</p></div>'; return; }
+    const filteredPosts = posts.filter(p=>!blockedUserIds.has(p.user_id));
+    if(!filteredPosts.length){ fl.innerHTML='<div class="empty-state"><i class="fa fa-images"></i><p>Belum ada postingan</p></div>'; return; }
     let html='';
-    for(const post of posts){
+    for(const post of filteredPosts){
       const u = users[post.user_id]||{username:'unknown',foto_profil_url:''};
       const isVideo = post.media_type==='video';
+      const isOwn = currentUser&&post.user_id===currentUser.id_user;
       html += `
       <div class="post-card" id="post-${post.id_post}">
         <div class="post-header">
@@ -264,7 +507,10 @@ async function loadFeed(){
             <div class="post-username" onclick="openUserProfile('${u.id_user}','${u.username}')">${u.username}</div>
             <div class="post-time">${timeAgo(post.created_at)}</div>
           </div>
-          ${currentUser&&post.user_id===currentUser.id_user?`<button class="icon-btn" onclick="deletePost('${post.id_post}')"><i class="fa fa-trash"></i></button>`:''}
+          <div style="display:flex;gap:0.3rem;margin-left:auto;">
+            ${!isOwn?`<button class="icon-btn" onclick="openReportContent('${post.id_post}','post')" title="Laporkan"><i class="fa fa-flag"></i></button>`:''}
+            ${isOwn?`<button class="icon-btn" onclick="deletePost('${post.id_post}')"><i class="fa fa-trash"></i></button>`:''}
+          </div>
         </div>
         ${post.media_url?`<div class="post-media-wrap">${isVideo?`<video src="${post.media_url}" controls playsinline style="width:100%;max-height:500px;object-fit:cover;display:block;"></video>`:`<img class="post-media" src="${post.media_url}" loading="lazy" alt="post">`}</div>`:''}
         <div class="post-actions">
@@ -281,12 +527,12 @@ async function loadFeed(){
             <i class="fa fa-share"></i>
           </button>
         </div>
-        ${post.caption?`<div class="post-caption"><strong class="post-username" style="cursor:pointer;" onclick="openUserProfile('${u.id_user}','${u.username}')">${u.username}</strong> ${post.caption}</div>`:''}
+        ${post.caption?`<div class="post-caption"><strong class="post-username" style="cursor:pointer;" onclick="openUserProfile('${u.id_user}','${u.username}')">${u.username}</strong> ${parseCaption(post.caption)}</div>`:''}
         <div style="padding:0 1rem 0.5rem;font-size:0.8rem;color:var(--text3);cursor:pointer;" onclick="openPostDetail('${post.id_post}')">Lihat komentar</div>
       </div>`;
     }
     fl.innerHTML = html;
-    for(const post of posts){ loadPostCounts(post.id_post); }
+    for(const post of filteredPosts){ loadPostCounts(post.id_post); }
   } catch(e){ fl.innerHTML='<div class="empty-state"><i class="fa fa-exclamation-circle"></i><p>Gagal memuat feed</p></div>'; }
 }
 
@@ -351,11 +597,7 @@ function sharePost(pid){
 }
 
 // ==================== CREATE ====================
-function openCreatePost(){
-  // On desktop we can show a different approach, but modal works universally
-  openModal('modal-create-post');
-}
-
+function openCreatePost(){ openModal('modal-create-post'); }
 function openCreateReel(){ openModal('modal-create-reel'); }
 
 // ==================== STORIES ====================
@@ -375,12 +617,13 @@ async function loadStories(){
     row.innerHTML = `<div style="flex-shrink:0"><div class="story-add-btn" onclick="openAddStory()"><i class="fa fa-plus" style="color:var(--text2);font-size:1.1rem;"></i></div><div class="story-name">Story</div></div>`;
     for(const uid of Object.keys(grouped)){
       const u = users[uid]||{username:'?',foto_profil_url:''};
+      if(blockedUserIds.has(uid)) continue;
       const isMine = currentUser && uid===currentUser.id_user;
       const storyList = grouped[uid];
       const div = document.createElement('div');
       div.style.flexShrink='0';
       div.innerHTML = `<div class="story-item" onclick="viewStory(${JSON.stringify(storyList).replace(/"/g,'&quot;')})">
-        <div class="story-ring ${isMine?'':''}">
+        <div class="story-ring">
           <div class="story-avatar">${u.foto_profil_url?`<img src="${u.foto_profil_url}" style="width:100%;height:100%;object-fit:cover;">`:(u.username[0]||'?').toUpperCase()}</div>
         </div>
         <div class="story-name">${isMine?'Kamu':u.username}</div>
@@ -443,14 +686,16 @@ async function loadReels(){
       const u = await SupabaseClient.select('Users_Alvaty',`id_user=eq.${uid}`,'created_at.asc','1');
       if(u[0]) users[uid]=u[0];
     }
-    rc.innerHTML = reels.map(r=>{
+    const filteredReels = reels.filter(r=>!blockedUserIds.has(r.user_id));
+    rc.innerHTML = filteredReels.map(r=>{
       const u = users[r.user_id]||{username:'unknown'};
+      const isOwn = currentUser&&r.user_id===currentUser.id_user;
       return `<div class="reel-item" id="reel-${r.id_reel}">
         <video class="reel-video" src="${r.video_url}" loop muted playsinline onclick="toggleReelPlay(this)"></video>
         <div class="reel-overlay"></div>
         <div class="reel-info">
           <div class="reel-username" onclick="openUserProfile('${u.id_user}','${u.username}')">@${u.username}</div>
-          <div class="reel-caption">${r.caption||''}</div>
+          <div class="reel-caption">${parseCaption(r.caption||'')}</div>
         </div>
         <div class="reel-actions">
           <button class="reel-btn" id="rl-${r.id_reel}" onclick="toggleLikeReel('${r.id_reel}',this)">
@@ -465,7 +710,8 @@ async function loadReels(){
           <button class="reel-btn" onclick="sharePost('${r.id_reel}')">
             <i class="fa fa-share"></i>
           </button>
-          ${currentUser&&r.user_id===currentUser.id_user?`<button class="reel-btn" onclick="deleteReel('${r.id_reel}')"><i class="fa fa-trash"></i></button>`:''}
+          ${!isOwn?`<button class="reel-btn" onclick="openReportContent('${r.id_reel}','reel')" title="Laporkan"><i class="fa fa-flag"></i></button>`:''}
+          ${isOwn?`<button class="reel-btn" onclick="deleteReel('${r.id_reel}')"><i class="fa fa-trash"></i></button>`:''}
         </div>
       </div>`;
     }).join('');
@@ -477,7 +723,7 @@ async function loadReels(){
       });
     },{threshold:0.7});
     rc.querySelectorAll('.reel-item').forEach(el=>observer.observe(el));
-    for(const r of reels) loadReelLikes(r.id_reel);
+    for(const r of filteredReels) loadReelLikes(r.id_reel);
   } catch(e){ rc.innerHTML='<div class="empty-state" style="height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;"><i class="fa fa-exclamation"></i><p>Gagal memuat reels</p></div>'; }
 }
 
@@ -524,22 +770,29 @@ async function loadChats(){
     const partnerIds = [...new Set(all.map(m=>m.sender_id===currentUser.id_user?m.receiver_id:m.sender_id))];
     const users = [];
     for(const uid of partnerIds){
+      if(blockedUserIds.has(uid)) continue;
       const u = await SupabaseClient.select('Users_Alvaty',`id_user=eq.${uid}`,'created_at.asc','1');
       if(u[0]) users.push(u[0]);
     }
     allChats = users;
-    renderChatList(users, all);
+    // Get online statuses
+    const statusMap = {};
+    for(const u of users){
+      statusMap[u.id_user] = await getUserOnlineStatus(u.id_user);
+    }
+    renderChatList(users, all, statusMap);
   } catch(e){ wrap.innerHTML='<div class="empty-state"><i class="fa fa-comment-dots"></i><p>Belum ada percakapan</p></div>'; }
 }
 
-function renderChatList(users, allMsgs){
+function renderChatList(users, allMsgs, statusMap={}){
   const wrap = document.getElementById('chat-list-wrap');
   if(!users.length){ wrap.innerHTML='<div class="empty-state"><i class="fa fa-comment-dots"></i><p>Belum ada percakapan.<br>Cari pengguna lain untuk memulai chat.</p></div>'; return; }
   wrap.innerHTML = users.map(u=>{
     const lastMsg = allMsgs.filter(m=>(m.sender_id===u.id_user||m.receiver_id===u.id_user)).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
     const unread = allMsgs.filter(m=>m.sender_id===u.id_user&&m.receiver_id===currentUser.id_user&&!m.read).length;
+    const status = statusMap[u.id_user]||{online:false};
     return `<div class="chat-item" onclick="openChatRoom('${u.id_user}','${u.username}','${u.foto_profil_url||''}')">
-      <div class="chat-avatar">${avatarEl(u,46)}<div class="chat-online"></div></div>
+      <div class="chat-avatar">${avatarEl(u,46)}<div class="chat-online" style="background:${status.online?'#22c55e':'#6b7280'};"></div></div>
       <div class="chat-info">
         <div class="chat-name">${u.username}</div>
         <div class="chat-preview">${lastMsg?(lastMsg.media_url?'📷 Gambar':lastMsg.message_text||''):'Mulai percakapan...'}</div>
@@ -563,7 +816,7 @@ async function searchUsersForChat(q){
     const users = await SupabaseClient.select('Users_Alvaty',`username=ilike.*${q}*`,'username.asc','10');
     const wrap = document.getElementById('chat-list-wrap');
     if(!users.length){ wrap.innerHTML='<div class="empty-state"><i class="fa fa-search"></i><p>Tidak ditemukan</p></div>'; return; }
-    wrap.innerHTML = users.filter(u=>u.id_user!==currentUser.id_user).map(u=>`
+    wrap.innerHTML = users.filter(u=>u.id_user!==currentUser.id_user&&!blockedUserIds.has(u.id_user)).map(u=>`
       <div class="chat-item" onclick="openChatRoom('${u.id_user}','${u.username}','${u.foto_profil_url||''}')">
         <div class="chat-avatar">${avatarEl(u,46)}</div>
         <div class="chat-info"><div class="chat-name">${u.username}</div><div class="chat-preview">Mulai percakapan</div></div>
@@ -572,16 +825,17 @@ async function searchUsersForChat(q){
 }
 
 async function openChatRoom(userId, username, avatarUrl){
-  // Close any overlays that might be on top (or below) to ensure chat is visible
-  // chat-room z-index is 700, above user-profile(600) — but we still open both
-  // user presses "chat" from profile, both can be open simultaneously — that's fine
-  // since chat z-index > profile z-index. Close profile if explicitly navigating to chat.
+  // Check if blocked
+  if(blockedUserIds.has(userId)){ showToast('Kamu telah memblokir pengguna ini','error'); return; }
   currentChatUser = {id_user:userId, username, foto_profil_url:avatarUrl};
   document.getElementById('cr-name').textContent = username;
-  document.getElementById('cr-status').textContent = 'Online';
   const ava = document.getElementById('cr-avatar');
   ava.innerHTML = avatarUrl?`<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;">`:(username[0]||'?').toUpperCase();
-  // Close user-profile so chat appears cleanly on top without confusion
+  // Show online status in chat room
+  const status = await getUserOnlineStatus(userId);
+  const crStatus = document.getElementById('cr-status');
+  if(crStatus) crStatus.textContent = status.online ? 'Online' : (status.lastSeen ? 'Terakhir '+timeAgo(status.lastSeen) : 'Offline');
+  if(crStatus) crStatus.style.color = status.online ? '#22c55e' : 'var(--text3)';
   document.getElementById('user-profile').classList.remove('active');
   document.getElementById('chat-room').classList.add('active');
   pushRoute(`/chat/${userId}`);
@@ -595,15 +849,10 @@ function closeChatRoom(){
   pushRoute('/chat');
 }
 
-// Mark received messages as read
 async function markMessagesRead(){
   if(!currentUser||!currentChatUser) return;
   try {
-    await SupabaseClient.update(
-      'Messages_Alvaty',
-      {read:true},
-      `sender_id=eq.${currentChatUser.id_user}&receiver_id=eq.${currentUser.id_user}&read=eq.false`
-    );
+    await SupabaseClient.update('Messages_Alvaty',{read:true},`sender_id=eq.${currentChatUser.id_user}&receiver_id=eq.${currentUser.id_user}&read=eq.false`);
     await updateBadges();
   } catch(e){}
 }
@@ -615,16 +864,11 @@ async function loadMessages(){
     const sent = await SupabaseClient.select('Messages_Alvaty',`sender_id=eq.${currentUser.id_user}&receiver_id=eq.${currentChatUser.id_user}`,'created_at.asc','100');
     const recv = await SupabaseClient.select('Messages_Alvaty',`sender_id=eq.${currentChatUser.id_user}&receiver_id=eq.${currentUser.id_user}`,'created_at.asc','100');
     const all = [...sent,...recv].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-
     msgs.innerHTML = all.map(m=>{
       const isSent = m.sender_id===currentUser.id_user;
-      // Read receipt: show for sent messages
       let readStatus = '';
       if(isSent){
-        readStatus = `<div class="msg-read-status ${m.read?'read':''}">
-          <i class="fa fa-check-double"></i>
-          ${m.read?'<span style="font-size:0.6rem;">Dilihat</span>':''}
-        </div>`;
+        readStatus = `<div class="msg-read-status ${m.read?'read':''}"><i class="fa fa-check-double"></i>${m.read?'<span style="font-size:0.6rem;">Dilihat</span>':''}</div>`;
       }
       return `<div class="chat-msg ${isSent?'sent':'received'}" id="msg-${m.id_message}">
         ${m.reply_to?`<div style="font-size:0.75rem;color:var(--text3);margin-bottom:3px;padding:3px 8px;background:var(--bg4);border-radius:8px;border-left:2px solid var(--accent);">↩ Balasan pesan</div>`:''}
@@ -688,7 +932,7 @@ async function loadNotifications(){
       const isUnread = !n.status_dibaca;
       return `<div class="notif-item ${isUnread?'unread':''}" id="notif-${n.id_notification}">
         <div style="display:flex;flex-direction:column;">
-          <div class="notif-avatar" style="background:var(--bg3);">${'?'}</div>
+          <div class="notif-avatar" style="background:var(--bg3);">{'?'}</div>
           <div class="notif-icon ${iconClass[type]||'comment'}">${icons[type]||'🔔'}</div>
         </div>
         <div class="notif-text">
@@ -728,7 +972,6 @@ async function markNotifsRead(){
     const sideBadge = document.getElementById('sidebar-notif-badge');
     if(badge) badge.style.display='none';
     if(sideBadge) sideBadge.style.display='none';
-    // Update notif items UI to show read
     document.querySelectorAll('.notif-item.unread').forEach(el=>{
       el.classList.remove('unread');
       const dot = el.querySelector('.notif-read-dot');
@@ -772,8 +1015,8 @@ function renderProfileHTML(user, posts, reels, followers, following, saved, isOw
       <div class="profile-pic">${user.foto_profil_url?`<img src="${user.foto_profil_url}" style="width:100%;height:100%;object-fit:cover;">`:(user.username||'?')[0].toUpperCase()}</div>
       <div class="profile-stats">
         <div class="stat-item"><div class="stat-num">${posts.length}</div><div class="stat-label">Postingan</div></div>
-        <div class="stat-item"><div class="stat-num">${followers.length}</div><div class="stat-label">Followers</div></div>
-        <div class="stat-item"><div class="stat-num">${following.length}</div><div class="stat-label">Following</div></div>
+        <div class="stat-item stat-clickable" onclick="openFollowersList('${uid}','${user.username}','followers')"><div class="stat-num" id="followers-count-${uid}">${followers.length}</div><div class="stat-label">Followers</div></div>
+        <div class="stat-item stat-clickable" onclick="openFollowersList('${uid}','${user.username}','following')"><div class="stat-num">${following.length}</div><div class="stat-label">Following</div></div>
       </div>
     </div>
     <div class="profile-bio-area">
@@ -784,7 +1027,9 @@ function renderProfileHTML(user, posts, reels, followers, following, saved, isOw
       ${isOwn
         ? `<button class="btn-outline" onclick="openEditProfile()"><i class="fa fa-edit"></i> Edit Profil</button>`
         : `<button class="btn-follow" id="follow-btn-${uid}" onclick="toggleFollow('${uid}')">Ikuti</button>
-           <button class="btn-outline" onclick="openChatRoom('${uid}','${user.username}','${user.foto_profil_url||''}')"><i class="fa fa-comment"></i></button>`
+           <button class="btn-outline" onclick="openChatRoom('${uid}','${user.username}','${user.foto_profil_url||''}')"><i class="fa fa-comment"></i></button>
+           <button class="btn-outline btn-danger-outline" onclick="openReportUser('${uid}','${user.username}')" title="Laporkan"><i class="fa fa-flag"></i></button>
+           <button class="btn-outline btn-danger-outline" onclick="blockUser('${uid}','${user.username}')" title="Blokir"><i class="fa fa-ban"></i></button>`
       }
     </div>
   </div>
@@ -815,13 +1060,9 @@ function renderProfileHTML(user, posts, reels, followers, following, saved, isOw
   </div>`:''}`;
 }
 
-// FIX: switchProfileTab - safely traverse DOM
 function switchProfileTab(tab, uid, el){
-  // Find the tabs container by id, not via parentElement chain
   const tabsContainer = document.getElementById(`profile-tabs-${uid}`);
-  if(tabsContainer){
-    tabsContainer.querySelectorAll('.profile-tab').forEach(t=>t.classList.remove('active'));
-  }
+  if(tabsContainer) tabsContainer.querySelectorAll('.profile-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   document.querySelectorAll(`[id^="ptc-"][id$="-${uid}"]`).forEach(c=>c.classList.remove('active'));
   const target = document.getElementById(`ptc-${tab}-${uid}`);
@@ -830,6 +1071,13 @@ function switchProfileTab(tab, uid, el){
 
 async function openUserProfile(userId, username){
   if(currentUser&&userId===currentUser.id_user){ switchTab('profile',document.getElementById('nav-profile')); return; }
+  // Check if blocked
+  if(blockedUserIds.has(userId)){ showToast('Kamu telah memblokir pengguna ini','error'); return; }
+  // Check if they blocked us
+  try {
+    const theyBlockedMe = await SupabaseClient.select('Blocks_Alvaty',`blocker_id=eq.${userId}&blocked_id=eq.${currentUser?.id_user}`,'created_at.desc','1');
+    if(theyBlockedMe.length){ showToast('Tidak dapat melihat profil ini','error'); return; }
+  } catch(e){}
   pushRoute(`/profile/${username}`);
   const up = document.getElementById('user-profile');
   up.classList.add('active');
@@ -843,7 +1091,17 @@ async function openUserProfile(userId, username){
     const reels = await SupabaseClient.select('Reels_Alvaty',`user_id=eq.${userId}`,'created_at.desc','50');
     const followers = await SupabaseClient.select('Followers_Alvaty',`following_id=eq.${userId}`,'created_at.asc','1000');
     const following = await SupabaseClient.select('Followers_Alvaty',`follower_id=eq.${userId}`,'created_at.asc','1000');
+    // Get online status
+    const status = await getUserOnlineStatus(userId);
     content.innerHTML = renderProfileHTML(user, posts, reels, followers, following, [], false);
+    // Add online badge
+    const bioArea = content.querySelector('.profile-bio-area');
+    if(bioArea){
+      const onlineBadge = document.createElement('div');
+      onlineBadge.style.cssText='display:inline-flex;align-items:center;gap:0.3rem;font-size:0.78rem;margin-top:0.3rem;';
+      onlineBadge.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${status.online?'#22c55e':'#6b7280'};display:inline-block;"></span><span style="color:var(--text3);">${status.online?'Online':'Offline'}</span>`;
+      bioArea.appendChild(onlineBadge);
+    }
     if(currentUser){
       const isFollow = await SupabaseClient.select('Followers_Alvaty',`follower_id=eq.${currentUser.id_user}&following_id=eq.${userId}`,'created_at.asc','1');
       const fbtn = document.getElementById(`follow-btn-${userId}`);
@@ -859,11 +1117,19 @@ async function toggleFollow(userId){
   const btn = document.getElementById('follow-btn-'+userId);
   try {
     const ex = await SupabaseClient.select('Followers_Alvaty',`follower_id=eq.${currentUser.id_user}&following_id=eq.${userId}`,'created_at.asc','1');
-    if(ex.length){ await SupabaseClient.delete('Followers_Alvaty',`id_follow=eq.${ex[0].id_follow}`); btn.textContent='Ikuti'; btn.classList.remove('btn-following'); }
-    else {
+    if(ex.length){
+      await SupabaseClient.delete('Followers_Alvaty',`id_follow=eq.${ex[0].id_follow}`);
+      btn.textContent='Ikuti'; btn.classList.remove('btn-following');
+    } else {
       await SupabaseClient.insert('Followers_Alvaty',{follower_id:currentUser.id_user,following_id:userId});
       await addNotification(userId,'follow',currentUser.id_user);
       btn.textContent='Mengikuti'; btn.classList.add('btn-following');
+    }
+    // Update follower count in real-time
+    const countEl = document.getElementById('followers-count-'+userId);
+    if(countEl){
+      const newFollowers = await SupabaseClient.select('Followers_Alvaty',`following_id=eq.${userId}`,'created_at.asc','1000');
+      countEl.textContent = newFollowers.length;
     }
   } catch(e){}
 }
@@ -889,6 +1155,7 @@ async function openPostDetail(postId){
       }
     }
     const isVideo = post.media_type==='video';
+    const isOwn = currentUser&&post.user_id===currentUser.id_user;
     content.innerHTML = `
       <div class="post-header">
         <div class="post-avatar" onclick="openUserProfile('${user.id_user}','${user.username}')">${avatarEl(user,38)}</div>
@@ -896,6 +1163,7 @@ async function openPostDetail(postId){
           <div class="post-username" onclick="openUserProfile('${user.id_user}','${user.username}')">${user.username}</div>
           <div class="post-time">${timeAgo(post.created_at)}</div>
         </div>
+        ${!isOwn?`<button class="icon-btn" onclick="openReportContent('${postId}','post')" style="margin-left:auto;" title="Laporkan"><i class="fa fa-flag"></i></button>`:''}
       </div>
       ${post.media_url?`<div class="post-media-wrap">${isVideo?`<video src="${post.media_url}" controls style="width:100%;max-height:400px;object-fit:cover;display:block;"></video>`:`<img class="post-media" src="${post.media_url}" alt="post">`}</div>`:''}
       <div class="post-actions">
@@ -906,7 +1174,7 @@ async function openPostDetail(postId){
           <i class="fa fa-bookmark"></i>
         </button>
       </div>
-      ${post.caption?`<div class="post-caption"><strong>${user.username}</strong> ${post.caption}</div>`:''}
+      ${post.caption?`<div class="post-caption"><strong>${user.username}</strong> ${parseCaption(post.caption)}</div>`:''}
       <div class="comments-section">
         <div style="font-weight:700;font-size:0.9rem;margin-bottom:1rem;color:var(--text2);">Komentar (${comments.length})</div>
         ${comments.map(c=>{
@@ -915,7 +1183,7 @@ async function openPostDetail(postId){
             <div class="comment-avatar">${avatarEl(cu,32)}</div>
             <div class="comment-body">
               <span class="comment-user">${cu.username}</span>
-              <div class="comment-text">${c.isi_komentar}</div>
+              <div class="comment-text">${parseCaption(c.isi_komentar)}</div>
               <div class="comment-actions">
                 <button class="comment-action" onclick="likeComment('${c.id_komentar}')"><i class="fa fa-heart"></i> Suka</button>
               </div>
@@ -1088,6 +1356,28 @@ async function submitFeedback(){
   } catch(e){showToast('Gagal kirim','error');}
 }
 
+// ==================== SETTINGS BLOCK MANAGEMENT ====================
+async function openBlockedList(){
+  openModal('modal-blocked-list');
+  const list = document.getElementById('blocked-list-wrap');
+  list.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  try {
+    const blocked = await SupabaseClient.select('Blocks_Alvaty',`blocker_id=eq.${currentUser.id_user}`,'created_at.desc','100');
+    if(!blocked.length){ list.innerHTML='<div class="empty-state"><i class="fa fa-ban"></i><p>Belum ada pengguna yang diblokir</p></div>'; return; }
+    const users = [];
+    for(const b of blocked){
+      const u = await SupabaseClient.select('Users_Alvaty',`id_user=eq.${b.blocked_id}`,'created_at.asc','1');
+      if(u[0]) users.push({...u[0], blockId:b.id_block});
+    }
+    list.innerHTML = users.map(u=>`
+      <div class="chat-item">
+        <div class="chat-avatar">${avatarEl(u,46)}</div>
+        <div class="chat-info"><div class="chat-name">${u.username}</div><div class="chat-preview">Diblokir</div></div>
+        <button onclick="unblockUser('${u.id_user}','${u.username}');openBlockedList();" style="background:var(--accent);color:#fff;border:none;padding:0.35rem 0.9rem;border-radius:50px;font-size:0.8rem;cursor:pointer;font-family:'Outfit',sans-serif;">Buka Blokir</button>
+      </div>`).join('');
+  } catch(e){ list.innerHTML='<div class="empty-state"><i class="fa fa-exclamation"></i><p>Gagal memuat</p></div>'; }
+}
+
 // ==================== ADMIN ====================
 function adminLogout(){
   currentUser=null; localStorage.removeItem('altavy_user'); showPage('landing');
@@ -1105,7 +1395,6 @@ function openReelById(rid){
   switchTab('reels', document.getElementById('nav-reels'));
   setTimeout(()=>{ const el=document.getElementById('reel-'+rid); if(el) el.scrollIntoView({behavior:'smooth'}); },500);
 }
-
 
 // ==================== SEARCH ====================
 let searchDebounce = null;
@@ -1126,7 +1415,7 @@ function closeSearchPage(){
 async function loadAllUsersPreview(){
   try {
     const users = await SupabaseClient.select('Users_Alvaty','','username.asc','20');
-    renderUserSearchResults(users.filter(u=>u.id_user!==currentUser?.id_user));
+    renderUserSearchResults(users.filter(u=>u.id_user!==currentUser?.id_user&&!blockedUserIds.has(u.id_user)));
   } catch(e){}
 }
 
@@ -1141,21 +1430,23 @@ function handleSearch(q){
 }
 
 async function doSearch(q){
+  // Hashtag search
+  if(q.startsWith('#')){
+    openHashtagPage(q.slice(1));
+    closeSearchPage();
+    return;
+  }
   try {
-    // Search users
     const users = await SupabaseClient.select('Users_Alvaty',`username=ilike.*${q}*`,'username.asc','15');
-    renderUserSearchResults(users.filter(u=>u.id_user!==currentUser?.id_user));
-    // Search posts by caption
+    renderUserSearchResults(users.filter(u=>u.id_user!==currentUser?.id_user&&!blockedUserIds.has(u.id_user)));
     const posts = await SupabaseClient.select('Posts_Alvaty',`caption=ilike.*${q}*`,'created_at.desc','12');
     renderPostSearchResults(posts);
   } catch(e){}
 }
 
 async function searchByTag(tag){
-  document.getElementById('search-input').value = '#'+tag;
-  const posts = await SupabaseClient.select('Posts_Alvaty',`caption=ilike.*${tag}*`,'created_at.desc','12');
-  renderPostSearchResults(posts);
-  document.getElementById('search-results-users').innerHTML = '';
+  closeSearchPage();
+  openHashtagPage(tag);
 }
 
 async function renderUserSearchResults(users){
@@ -1164,7 +1455,6 @@ async function renderUserSearchResults(users){
     wrap.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><i class="fa fa-user-slash"></i><p>Tidak ada pengguna ditemukan</p></div>';
     return;
   }
-  // Check follow status
   let followedIds = new Set();
   if(currentUser){
     try {
@@ -1180,8 +1470,8 @@ async function renderUserSearchResults(users){
         <div class="search-user-name">${u.username}</div>
         <div class="search-user-bio">${u.bio||'Belum ada bio'}</div>
       </div>
-      ${currentUser&&u.id_user!==currentUser.id_user?`<button class="search-user-follow ${isFollowing?'following':''}" onclick="event.stopPropagation();toggleFollowSearch('${u.id_user}',this)">${isFollowing?'Mengikuti':'Ikuti'}</button>`:''}
-    </div>`;
+      ${currentUser&&u.id_user!==currentUser.id_user?`<button class="search-user-follow ${isFollowing?'following':''}" onclick="event.stopPropagation();toggleFollowSearch('${u.id_user}',this)">${isFollowing?'Mengikuti':'Ikuti'}</button>`:''}`+
+    `</div>`;
   }).join('');
 }
 
@@ -1224,7 +1514,7 @@ async function loadAdminDashboard(){
   const content=document.getElementById('admin-content');
   content.innerHTML='<div class="loading-wrap"><div class="spinner"></div></div>';
   try {
-    const [users,posts,reels,stories,comments,msgs,feedbacks,likes]=await Promise.all([
+    const [users,posts,reels,stories,comments,msgs,feedbacks,likes,reports,bans]=await Promise.all([
       SupabaseClient.select('Users_Alvaty','','created_at.desc','1000'),
       SupabaseClient.select('Posts_Alvaty','','created_at.desc','1000'),
       SupabaseClient.select('Reels_Alvaty','','created_at.desc','1000'),
@@ -1233,29 +1523,29 @@ async function loadAdminDashboard(){
       SupabaseClient.select('Messages_Alvaty','','created_at.desc','1000'),
       SupabaseClient.select('Feedback_Alvaty','','created_at.desc','100'),
       SupabaseClient.select('Likes_Alvaty','','created_at.desc','1000'),
+      SupabaseClient.select('Reports_Alvaty','','created_at.desc','200').catch(()=>[]),
+      SupabaseClient.select('Bans_Alvaty','','created_at.desc','100').catch(()=>[]),
     ]);
 
-    // --- Compute stats ---
     const now = Date.now();
     const day = 86400000;
     const usersToday = users.filter(u=>now-new Date(u.created_at)<day).length;
     const postsToday = posts.filter(p=>now-new Date(p.created_at)<day).length;
     const msgsToday = msgs.filter(m=>now-new Date(m.created_at)<day).length;
     const likesToday = likes.filter(l=>now-new Date(l.created_at)<day).length;
+    const pendingReports = reports.filter(r=>r.status==='pending').length;
+    const activeBans = bans.filter(b=>b.is_active).length;
 
-    // Activity by hour (last 24h)
     const hourBuckets = Array(24).fill(0);
-    posts.filter(p=>now-new Date(p.created_at)<day*1).forEach(p=>{
+    posts.filter(p=>now-new Date(p.created_at)<day).forEach(p=>{
       const h = new Date(p.created_at).getHours();
       hourBuckets[h]++;
     });
 
-    // Content type breakdown
     const imgPosts = posts.filter(p=>p.media_type!=='video').length;
     const vidPosts = posts.filter(p=>p.media_type==='video').length;
     const maxHour = Math.max(...hourBuckets,1);
 
-    // Top 5 users by post count
     const userPostCount = {};
     posts.forEach(p=>{ userPostCount[p.user_id]=(userPostCount[p.user_id]||0)+1; });
     const topUsers = Object.entries(userPostCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
@@ -1266,7 +1556,6 @@ async function loadAdminDashboard(){
     }
     const maxPosts = topUsers[0]?.[1]||1;
 
-    // Recent activity feed
     const allActivity = [
       ...users.slice(0,5).map(u=>({type:'user',text:`@${u.username} mendaftar`,time:u.created_at,color:'green'})),
       ...posts.slice(0,5).map(p=>({type:'post',text:`Postingan baru dibuat`,time:p.created_at,color:'blue'})),
@@ -1275,29 +1564,28 @@ async function loadAdminDashboard(){
     ].sort((a,b)=>new Date(b.time)-new Date(a.time)).slice(0,15);
 
     content.innerHTML=`
-    <!-- Admin Tabs -->
     <div class="admin-tabs">
       <button class="admin-tab-btn active" onclick="switchAdminTab('overview',this)">Overview</button>
       <button class="admin-tab-btn" onclick="switchAdminTab('users',this)">Pengguna</button>
       <button class="admin-tab-btn" onclick="switchAdminTab('content',this)">Konten</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('reports',this)">Laporan ${pendingReports>0?`<span style="background:#ef4444;color:#fff;border-radius:50%;padding:1px 5px;font-size:0.7rem;margin-left:4px;">${pendingReports}</span>`:''}</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('bans',this)">Ban ${activeBans>0?`<span style="background:#f97316;color:#fff;border-radius:50%;padding:1px 5px;font-size:0.7rem;margin-left:4px;">${activeBans}</span>`:''}</button>
       <button class="admin-tab-btn" onclick="switchAdminTab('feedback',this)">Saran</button>
     </div>
 
     <!-- OVERVIEW TAB -->
     <div class="admin-tab-panel active" id="admin-tab-overview">
-      <!-- KPI Cards -->
       <div class="admin-kpi-grid">
         <div class="kpi-card"><div class="kpi-num">${users.length}</div><div class="kpi-label">Total Pengguna</div><div class="kpi-trend up">+${usersToday} hari ini</div></div>
         <div class="kpi-card"><div class="kpi-num">${posts.length}</div><div class="kpi-label">Total Postingan</div><div class="kpi-trend up">+${postsToday} hari ini</div></div>
         <div class="kpi-card"><div class="kpi-num">${msgs.length}</div><div class="kpi-label">Total Pesan</div><div class="kpi-trend up">+${msgsToday} hari ini</div></div>
         <div class="kpi-card"><div class="kpi-num">${likes.length}</div><div class="kpi-label">Total Like</div><div class="kpi-trend up">+${likesToday} hari ini</div></div>
-        <div class="kpi-card"><div class="kpi-num">${reels.length}</div><div class="kpi-label">Total Reels</div><div class="kpi-trend ${reels.length>0?'up':''}">Video pendek</div></div>
+        <div class="kpi-card"><div class="kpi-num">${reels.length}</div><div class="kpi-label">Total Reels</div><div class="kpi-trend">Video pendek</div></div>
         <div class="kpi-card"><div class="kpi-num">${stories.length}</div><div class="kpi-label">Total Stories</div><div class="kpi-trend">Aktif & expired</div></div>
-        <div class="kpi-card"><div class="kpi-num">${comments.length}</div><div class="kpi-label">Komentar</div><div class="kpi-trend">Total diskusi</div></div>
-        <div class="kpi-card"><div class="kpi-num">${feedbacks.length}</div><div class="kpi-label">Feedback</div><div class="kpi-trend">Masukan pengguna</div></div>
+        <div class="kpi-card" style="border-color:${pendingReports>0?'#ef4444':'var(--border)'};"><div class="kpi-num" style="color:${pendingReports>0?'#ef4444':'var(--accent)'};">${pendingReports}</div><div class="kpi-label">Laporan Pending</div><div class="kpi-trend ${pendingReports>0?'down':''}">Perlu ditinjau</div></div>
+        <div class="kpi-card" style="border-color:${activeBans>0?'#f97316':'var(--border)'};"><div class="kpi-num" style="color:${activeBans>0?'#f97316':'var(--accent)'};">${activeBans}</div><div class="kpi-label">Akun Dibanned</div><div class="kpi-trend">Aktif sekarang</div></div>
       </div>
 
-      <!-- Chart: Post activity by hour -->
       <div class="admin-chart-wrap">
         <div class="admin-chart-title"><i class="fa fa-chart-bar" style="color:var(--accent);margin-right:6px;"></i>Aktivitas Postingan per Jam (24 jam terakhir)</div>
         ${hourBuckets.map((v,i)=>`
@@ -1308,9 +1596,8 @@ async function loadAdminDashboard(){
           </div>`).join('')}
       </div>
 
-      <!-- Top Users Chart -->
       <div class="admin-chart-wrap">
-        <div class="admin-chart-title"><i class="fa fa-trophy" style="color:var(--accent);margin-right:6px;"></i>Top 5 Pengguna Paling Aktif (Postingan)</div>
+        <div class="admin-chart-title"><i class="fa fa-trophy" style="color:var(--accent);margin-right:6px;"></i>Top 5 Pengguna Paling Aktif</div>
         ${topUsers.map(([uid,count])=>`
           <div class="chart-bar-row">
             <div class="chart-bar-label" style="font-weight:600;color:var(--text);">@${topUserNames[uid]}</div>
@@ -1320,7 +1607,6 @@ async function loadAdminDashboard(){
         ${topUsers.length===0?'<div class="empty-state" style="padding:1rem;"><p>Belum ada data</p></div>':''}
       </div>
 
-      <!-- Content breakdown + Activity -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
         <div class="admin-chart-wrap" style="margin-bottom:0;">
           <div class="admin-chart-title"><i class="fa fa-pie-chart" style="color:var(--accent);margin-right:6px;"></i>Tipe Konten</div>
@@ -1370,14 +1656,16 @@ async function loadAdminDashboard(){
         <div class="admin-section-header"><div class="admin-section-title">Data Pengguna (${users.length})</div></div>
         <div class="admin-table-wrap">
           <table class="admin-table">
-            <thead><tr><th>#</th><th>Username</th><th>Password</th><th>Bio</th><th>Daftar</th><th>Aksi</th></tr></thead>
+            <thead><tr><th>#</th><th>Username</th><th>Bio</th><th>Daftar</th><th>Aksi</th></tr></thead>
             <tbody>${users.map((u,i)=>`<tr>
               <td>${i+1}</td>
               <td><strong>${u.username}</strong></td>
-              <td><code style="font-size:0.78rem;background:var(--bg3);padding:2px 6px;border-radius:4px;">${u.password_hash}</code></td>
               <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.bio||'-'}</td>
               <td>${timeAgo(u.created_at)}</td>
-              <td><button onclick="adminDeleteUser('${u.id_user}','${u.username}')" style="background:#ef4444;color:#fff;border:none;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:0.75rem;">Hapus</button></td>
+              <td style="display:flex;gap:0.3rem;flex-wrap:wrap;">
+                <button onclick="adminBanUser('${u.id_user}','${u.username}')" style="background:#f97316;color:#fff;border:none;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:0.75rem;"><i class="fa fa-ban"></i> Ban</button>
+                <button onclick="adminDeleteUser('${u.id_user}','${u.username}')" style="background:#ef4444;color:#fff;border:none;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:0.75rem;"><i class="fa fa-trash"></i> Hapus</button>
+              </td>
             </tr>`).join('')}</tbody>
           </table>
         </div>
@@ -1416,6 +1704,48 @@ async function loadAdminDashboard(){
             </tr>`).join('')}</tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- REPORTS TAB -->
+    <div class="admin-tab-panel" id="admin-tab-reports">
+      <div class="admin-section">
+        <div class="admin-section-header"><div class="admin-section-title">Laporan Masuk (${reports.length})</div></div>
+        ${reports.length ? `<div class="admin-table-wrap"><table class="admin-table">
+          <thead><tr><th>Tipe</th><th>Alasan</th><th>Catatan</th><th>Status</th><th>Waktu</th><th>Aksi</th></tr></thead>
+          <tbody>${reports.map(r=>`<tr>
+            <td><span style="background:${r.target_type==='user'?'#8b5cf6':r.target_type==='post'?'#3b82f6':'#f59e0b'};color:#fff;padding:2px 6px;border-radius:4px;font-size:0.72rem;">${r.target_type}</span></td>
+            <td style="font-size:0.82rem;">${r.reason||'-'}</td>
+            <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.8rem;">${r.notes||'-'}</td>
+            <td><span style="background:${r.status==='pending'?'#ef4444':r.status==='resolved'?'var(--accent)':'var(--bg3)'};color:${r.status==='pending'?'#fff':r.status==='resolved'?'#fff':'var(--text)'};padding:2px 8px;border-radius:50px;font-size:0.72rem;">${r.status}</span></td>
+            <td>${timeAgo(r.created_at)}</td>
+            <td style="display:flex;gap:0.3rem;flex-wrap:wrap;">
+              ${r.status==='pending'?`<button onclick="adminResolveReport('${r.id_report}')" style="background:var(--accent);color:#fff;border:none;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:0.72rem;"><i class="fa fa-check"></i> Selesai</button>`:''}
+              ${r.target_type==='post'?`<button onclick="adminDeletePost('${r.target_id}')" style="background:#ef4444;color:#fff;border:none;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:0.72rem;"><i class="fa fa-trash"></i></button>`:''}
+              ${r.target_type==='reel'?`<button onclick="adminDeleteReel('${r.target_id}')" style="background:#ef4444;color:#fff;border:none;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:0.72rem;"><i class="fa fa-trash"></i></button>`:''}
+            </td>
+          </tr>`).join('')}</tbody>
+        </table></div>`
+        :'<div class="empty-state"><i class="fa fa-flag"></i><p>Belum ada laporan</p></div>'}
+      </div>
+    </div>
+
+    <!-- BANS TAB -->
+    <div class="admin-tab-panel" id="admin-tab-bans">
+      <div class="admin-section">
+        <div class="admin-section-header"><div class="admin-section-title">Riwayat Ban (${bans.length})</div></div>
+        ${bans.length ? `<div class="admin-table-wrap"><table class="admin-table">
+          <thead><tr><th>User ID</th><th>Alasan</th><th>Durasi</th><th>Sampai</th><th>Aktif</th><th>Aksi</th></tr></thead>
+          <tbody>${bans.map(b=>`<tr>
+            <td style="font-size:0.72rem;">${b.user_id?.substring(0,12)}...</td>
+            <td>${b.reason||'-'}</td>
+            <td>${b.ban_type==='permanent'?'Permanen':b.ban_type}</td>
+            <td>${b.ban_until?new Date(b.ban_until).toLocaleDateString('id-ID'):'Permanen'}</td>
+            <td><span style="background:${b.is_active?'#ef4444':'var(--bg3)'};color:${b.is_active?'#fff':'var(--text)'};padding:2px 8px;border-radius:50px;font-size:0.72rem;">${b.is_active?'Aktif':'Selesai'}</span></td>
+            <td>${b.is_active?`<button onclick="adminUnban('${b.id_ban}')" style="background:var(--accent);color:#fff;border:none;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:0.72rem;"><i class="fa fa-unlock"></i> Cabut Ban</button>`:''}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>`
+        :'<div class="empty-state"><i class="fa fa-ban"></i><p>Belum ada riwayat ban</p></div>'}
       </div>
     </div>
 
@@ -1465,4 +1795,41 @@ async function adminDeleteReel(rid){
     showToast('Reels dihapus','success');
     loadAdminDashboard();
   } catch(e){ showToast('Gagal hapus','error'); }
+}
+
+async function adminResolveReport(reportId){
+  try {
+    await SupabaseClient.update('Reports_Alvaty',{status:'resolved'},`id_report=eq.${reportId}`);
+    showToast('Laporan ditandai selesai','success');
+    loadAdminDashboard();
+  } catch(e){ showToast('Gagal','error'); }
+}
+
+async function adminBanUser(userId, username){
+  const options = ['3 hari','7 hari','30 hari','Permanen'];
+  const choice = prompt(`Ban @${username}?\n\nPilih durasi:\n1. 3 hari\n2. 7 hari\n3. 30 hari\n4. Permanen\n\nKetik nomor pilihan (1-4):`);
+  if(!choice) return;
+  const idx = parseInt(choice)-1;
+  if(idx<0||idx>3){ showToast('Pilihan tidak valid','error'); return; }
+  const reason = prompt('Alasan ban:') || 'Melanggar ketentuan';
+  let banUntil = null;
+  let banType = 'permanent';
+  if(idx===0){ banUntil=new Date(Date.now()+3*86400000).toISOString(); banType='3_hari'; }
+  if(idx===1){ banUntil=new Date(Date.now()+7*86400000).toISOString(); banType='7_hari'; }
+  if(idx===2){ banUntil=new Date(Date.now()+30*86400000).toISOString(); banType='30_hari'; }
+  try {
+    // Deactivate existing bans first
+    await SupabaseClient.update('Bans_Alvaty',{is_active:false},`user_id=eq.${userId}&is_active=eq.true`).catch(()=>{});
+    await SupabaseClient.insert('Bans_Alvaty',{user_id:userId,reason,ban_type:banType,ban_until:banUntil,is_active:true});
+    showToast(`@${username} dibanned (${options[idx]})`,'success');
+    loadAdminDashboard();
+  } catch(e){ showToast('Gagal ban pengguna: '+e.message,'error'); }
+}
+
+async function adminUnban(banId){
+  try {
+    await SupabaseClient.update('Bans_Alvaty',{is_active:false},`id_ban=eq.${banId}`);
+    showToast('Ban berhasil dicabut','success');
+    loadAdminDashboard();
+  } catch(e){ showToast('Gagal','error'); }
 }

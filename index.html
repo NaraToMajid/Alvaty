@@ -567,5 +567,64 @@
 <div class="toast" id="toast"></div>
 
 <script src="script.js"></script>
+<script>
+/* ============================================
+   AI ALVATY - Inline to guarantee availability
+   ============================================ */
+const AI_API_BASE = 'https://api.siputzx.my.id/api/ai/gemini';
+const AI_SYSTEM_PROMPT = 'Kamu adalah AI Alvaty, asisten cerdas dari platform sosial media Altavy. Altavy adalah platform sosial media modern dengan fitur: Feed postingan foto/video/teks, Reels video pendek, Stories, Chat antar pengguna, Notifikasi, sistem Followers/Following, Hashtag, Mention, Komentar, Like, dan profil pengguna. Kamu membantu pengguna dengan tips membuat konten menarik, cara menggunakan fitur Altavy, ide postingan kreatif, saran berinteraksi dengan komunitas, tren konten terkini, dan pertanyaan umum lainnya. Jawab dengan ramah, singkat, dan to the point dalam bahasa Indonesia yang natural. Jangan gunakan markdown berlebihan, cukup teks biasa yang mudah dibaca.';
+
+async function sendAIMessage() {
+  const input = document.getElementById('ai-input');
+  const sendBtn = document.getElementById('ai-send-btn');
+  const messagesEl = document.getElementById('ai-messages');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  sendBtn.disabled = true;
+  appendAIBubble(text, 'user');
+
+  const typingId = 'ai-typing-' + Date.now();
+  const typingEl = document.createElement('div');
+  typingEl.className = 'ai-bubble ai-bubble-bot';
+  typingEl.id = typingId;
+  typingEl.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
+  messagesEl.appendChild(typingEl);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  try {
+    const url = `${AI_API_BASE}?text=${encodeURIComponent(text)}&cookie=Alvaty&promptSystem=${encodeURIComponent(AI_SYSTEM_PROMPT)}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    const reply = json?.data?.response || 'Maaf, aku tidak bisa menjawab saat ini. Coba lagi ya!';
+    document.getElementById(typingId)?.remove();
+    appendAIBubble(reply, 'bot');
+  } catch (e) {
+    document.getElementById(typingId)?.remove();
+    appendAIBubble('Koneksi bermasalah. Coba lagi beberapa saat ya!', 'bot');
+  }
+
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function appendAIBubble(text, type) {
+  const messagesEl = document.getElementById('ai-messages');
+  if (!messagesEl) return;
+  const clean = text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/#{1,6}\s/g, '')
+    .replace(/---+/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  const div = document.createElement('div');
+  div.className = `ai-bubble ai-bubble-${type}`;
+  div.innerHTML = `<div class="ai-bubble-inner">${clean.replace(/\n/g, '<br>')}</div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+</script>
 </body>
 </html>

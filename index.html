@@ -117,6 +117,9 @@
     <button class="sidebar-nav-item" id="sidebar-nav-profile" onclick="switchTab('profile',this)">
       <i class="fa fa-user"></i> Profil
     </button>
+    <button class="sidebar-nav-item" id="sidebar-nav-ai" onclick="switchTab('ai',this)">
+      <i class="fa fa-robot"></i> AI Alvaty
+    </button>
     <button class="sidebar-create-btn" style="margin-top:1rem;" onclick="openCreatePost()">
       <i class="fa fa-plus"></i> Buat Post
     </button>
@@ -175,6 +178,30 @@
       <div id="tab-profile" class="tab-panel">
         <div id="my-profile-content"></div>
       </div>
+
+      <!-- AI ALVATY TAB -->
+      <div id="tab-ai" class="tab-panel">
+        <div class="ai-chat-wrap">
+          <div class="ai-chat-header">
+            <div class="ai-avatar-icon"><i class="fa fa-robot"></i></div>
+            <div>
+              <div class="ai-chat-title">AI Alvaty</div>
+              <div class="ai-chat-sub">Asisten pintar platform Altavy</div>
+            </div>
+          </div>
+          <div class="ai-messages" id="ai-messages">
+            <div class="ai-bubble ai-bubble-bot">
+              <div class="ai-bubble-inner">Halo! Aku <strong>AI Alvaty</strong> 👋<br>Aku siap bantu kamu soal apapun — tips konten, fitur Altavy, ide postingan, atau sekadar ngobrol santai. Ada yang bisa aku bantu?</div>
+            </div>
+          </div>
+          <div class="ai-input-bar">
+            <input type="text" id="ai-input" class="ai-input" placeholder="Tanya sesuatu..." onkeydown="if(event.key==='Enter')sendAIMessage()">
+            <button class="ai-send-btn" onclick="sendAIMessage()" id="ai-send-btn">
+              <i class="fa fa-paper-plane"></i>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- MOBILE BOTTOM NAV -->
@@ -189,9 +216,8 @@
         <i class="fa fa-comment-dots nav-icon"></i><span class="nav-label">Chat</span>
         <div class="nav-badge" id="chat-badge" style="display:none">0</div>
       </div>
-      <div class="nav-item" onclick="switchTab('notif',this)" id="nav-notif">
-        <i class="fa fa-bell nav-icon"></i><span class="nav-label">Notif</span>
-        <div class="nav-badge" id="notif-badge" style="display:none">0</div>
+      <div class="nav-item" onclick="switchTab('ai',this)" id="nav-ai">
+        <i class="fa fa-robot nav-icon"></i><span class="nav-label">AI</span>
       </div>
       <div class="nav-item" onclick="switchTab('profile',this)" id="nav-profile">
         <i class="fa fa-user nav-icon"></i><span class="nav-label">Profil</span>
